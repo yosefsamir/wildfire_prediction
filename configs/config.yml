@@ -1,0 +1,27 @@
+# Project configuration
+
+paths:
+  raw_data: data/raw
+  external_data: data/external
+  interim_data: data/interim
+  processed_data: data/processed
+  merged_data: data/processed/merged
+  figures: artifacts/figures
+  models: artifacts/models
+  metrics: artifacts/metrics
+
+files:
+  fire_data: fire_archive_SV-C2_607788.csv
+  ca_boundary: cb_2023_us_state_20m.zip
+  processed_fire_data: california_wildfires.csv
+
+visualization:
+  sample_size: 10000
+  dpi: 300
+  figure_size:
+    width: 10
+    height: 8
+
+general:
+  random_seed: 42
+  log_level: INFO
