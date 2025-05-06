@@ -12,6 +12,18 @@ stages:
           cache: true
           persist: true
 
+  clean_weather_data:
+    cmd: python pipelines/clean_weather_data.py
+    deps:
+      - data/raw/weather
+    outs:
+      - data/interim/weather_clean:
+          cache: true
+          persist: true
+      - data/interim/weather_master.parquet:
+          cache: true
+          persist: true
+
   preprocess_fire_data:
     cmd: python pipelines/preprocess_fire_data.py
     deps:
@@ -21,6 +33,17 @@ stages:
       - data/processed/california_wildfires.csv:
           cache: true
           persist: true
+
+  apply_weather_features:
+    cmd: python pipelines/apply_weather_features.py
+    deps:
+      - data/processed/california_wildfires.csv
+      - data/interim/weather_master.parquet
+    outs:
+      - data/processed/california_wildfires_with_weather.csv:
+          cache: true
+          persist: true
+
 
   # train_model:
   #   cmd: python pipelines/train_model.py
