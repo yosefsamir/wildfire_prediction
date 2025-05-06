@@ -8,5 +8,6 @@ from .feature_engineering import (
     create_grid_and_time_features,
     encode_categorical_features,
     transform_numerical_features,
-    drop_unnecessary_columns
+    drop_unnecessary_columns,
+    drop_nonzero_types
 )

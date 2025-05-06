@@ -187,7 +187,8 @@ def filter_california_data(gdf, california):
     """
     try:
         print(f"Before filtering to California: {len(gdf)} rows")
-        california_data = gdf[gdf.within(california.geometry.union_all())]
+        # Replace union_all() with unary_union which is available in older versions
+        california_data = gdf[gdf.within(california.geometry.unary_union)]
         print(f"After filtering to California: {len(california_data)} rows")
         return california_data
     except Exception as e:

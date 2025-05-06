@@ -50,9 +50,9 @@ def create_grid_and_time_features(gdf, grid_size_km=1):
     
     # Create time-based features
     gdf['week'] = gdf['acq_date'].dt.to_period('W')
-    gdf['month'] = gdf['acq_date'].dt.month
-    gdf['year'] = gdf['acq_date'].dt.year
-    gdf['day_of_year'] = gdf['acq_date'].dt.dayofyear
+    # gdf['month'] = gdf['acq_date'].dt.month
+    # gdf['year'] = gdf['acq_date'].dt.year
+    # gdf['day_of_year'] = gdf['acq_date'].dt.dayofyear
     
     print(f"After creating grid and time features: {len(gdf)} rows")
     return gdf
@@ -87,18 +87,36 @@ def encode_categorical_features(df, drop_low_confidence=True):
             print(f"After removing invalid confidence values: {len(df)} rows")
         
         # Define confidence order based on whether we're keeping low confidence values
-        confidence_order = ['n', 'h'] if drop_low_confidence else ['l', 'n', 'h']
-        encoder = OrdinalEncoder(categories=[confidence_order])
-        df['confidence_encoded'] = encoder.fit_transform(df[['confidence']])
+        # confidence_order = ['n', 'h'] if drop_low_confidence else ['l', 'n', 'h']
+        # encoder = OrdinalEncoder(categories=[confidence_order])
+        # df['confidence_encoded'] = encoder.fit_transform(df[['confidence']])
     
-    # One-hot encode day/night
-    if 'daynight' in df.columns:
-        encoder = OneHotEncoder(sparse_output=False, drop='first')
-        encoded_data = encoder.fit_transform(df[['daynight']])
-        df['is_day'] = encoded_data[:, 0]  # Only need one column since we dropped the first
+    # # One-hot encode day/night
+    # if 'daynight' in df.columns:
+    #     encoder = OneHotEncoder(sparse_output=False, drop='first')
+    #     encoded_data = encoder.fit_transform(df[['daynight']])
+    #     df['is_day'] = encoded_data[:, 0]  # Only need one column since we dropped the first
     
     print(f"After encoding categorical features: {len(df)} rows")
     return df
+
+def drop_nonzero_types(df):
+    """Drop rows with non-zero 'type' values.
+
+    Args:
+        df: DataFrame with 'type' column
+
+    Returns:
+        pd.DataFrame: DataFrame with non-zero 'type' values removed
+    """
+    print(f"Before dropping non-zero 'type' values: {len(df)} rows")
+
+    # Filter out rows where 'type' is not zero
+    df = df[df['type'] == 0]
+
+    print(f"After dropping non-zero 'type' values: {len(df)} rows")
+    return df
+
 
 
 def transform_numerical_features(df, log_transform_frp=True, normalize_brightness=True):

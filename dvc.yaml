@@ -1,9 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/iterative/dvcyaml-schema/master/schema.json
 stages:
+
   clean_fire_data:
     cmd: python pipelines/clean_fire_data.py
     deps:
       - data/raw/fire_archive_SV-C2_607788.csv
       - data/raw/cb_2023_us_state_20m.zip
+      - pipelines/clean_fire_data.py
     outs:
       - data/interim/fire_clean.csv:
           cache: true
@@ -13,6 +16,7 @@ stages:
     cmd: python pipelines/preprocess_fire_data.py
     deps:
       - data/interim/fire_clean.csv
+      - pipelines/preprocess_fire_data.py
     outs:
       - data/processed/california_wildfires.csv:
           cache: true
