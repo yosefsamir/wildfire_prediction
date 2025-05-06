@@ -25,7 +25,8 @@ from wildfire_prediction.features.feature_engineering import (
     create_grid_and_time_features,
     encode_categorical_features,
     transform_numerical_features,
-    drop_unnecessary_columns
+    drop_unnecessary_columns,
+    drop_nonzero_types
 )
 
 
@@ -75,9 +76,19 @@ def main():
         print("Transforming numerical features...")
         df = transform_numerical_features(df)
         
+        print(f"before dropping non-zero 'type' values: {len(df)} rows")
+        # Filter out rows where 'type' is not zero
+        df = drop_nonzero_types(df)
+        print(f"After dropping non-zero 'type' values: {len(df)} rows")
         # Drop unnecessary columns
         print("Dropping unnecessary columns...")
-        df = drop_unnecessary_columns(df)
+        columns_to_drop = [
+            'confidence','acq_time', 'bright_t31', 'frp', 'daynight', 'type','brightness','scan','track',
+            'satellite','instrument','version'
+        ]
+        df = drop_unnecessary_columns(df,columns_to_drop)
+        
+        print(f"After preprocessing: {len(df)} rows")
         
         # Save processed data using paths from config
         output_path = os.path.join(paths['processed_data'], 'california_wildfires.csv')

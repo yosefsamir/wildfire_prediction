@@ -4,27 +4,31 @@ stages:
     cmd: python pipelines/clean_fire_data.py
     deps:
     - path: data/raw/cb_2023_us_state_20m.zip
-      hash: md5
       md5: ad8eda03e424bb59353c00b1b6398b07
       size: 186432
     - path: data/raw/fire_archive_SV-C2_607788.csv
-      hash: md5
       md5: 1da6e063f15a51119d2858af6656313e
       size: 490580970
+    - path: pipelines/clean_fire_data.py
+      hash: md5
+      md5: 2540033982ebf49dd167e05e6802572c
+      size: 5586
     outs:
     - path: data/interim/fire_clean.csv
-      hash: md5
-      md5: fc3766ca580f7ba693dbba8d21f16006
+      md5: 9ed4fdad8330e39662396f999ea1a6cd
       size: 116624831
   preprocess_fire_data:
     cmd: python pipelines/preprocess_fire_data.py
     deps:
     - path: data/interim/fire_clean.csv
-      hash: md5
-      md5: fc3766ca580f7ba693dbba8d21f16006
+      md5: 9ed4fdad8330e39662396f999ea1a6cd
       size: 116624831
+    - path: pipelines/preprocess_fire_data.py
+      hash: md5
+      md5: 04c386b97b4aacd7ad6bb5234ba697ad
+      size: 5514
     outs:
     - path: data/processed/california_wildfires.csv
       hash: md5
-      md5: a1130c1838398457e57e03c9af740a94
-      size: 168370585
+      md5: 49a7783c4c65d55a31b6d532f2e45d45
+      size: 124771824
