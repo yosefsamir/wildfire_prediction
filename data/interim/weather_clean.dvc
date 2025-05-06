@@ -1,0 +1,6 @@
+outs:
+- md5: 99252488b4179859bcd12451f34daa75.dir
+  size: 6749729368
+  nfiles: 12
+  hash: md5
+  path: weather_clean
