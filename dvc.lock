@@ -11,8 +11,8 @@ stages:
       size: 490580970
     - path: pipelines/clean_fire_data.py
       hash: md5
-      md5: 2540033982ebf49dd167e05e6802572c
-      size: 5586
+      md5: 92ae172a9b206f33a0ea69cf9c4e3982
+      size: 5452
     outs:
     - path: data/interim/fire_clean.csv
       md5: 9ed4fdad8330e39662396f999ea1a6cd
@@ -25,10 +25,32 @@ stages:
       size: 116624831
     - path: pipelines/preprocess_fire_data.py
       hash: md5
-      md5: 04c386b97b4aacd7ad6bb5234ba697ad
-      size: 5514
+      md5: 3c9f23feb1d0d4ba4dc0296bf1b0dd84
+      size: 5375
     outs:
     - path: data/processed/california_wildfires.csv
       hash: md5
       md5: 49a7783c4c65d55a31b6d532f2e45d45
       size: 124771824
+  clean_weather_data:
+    cmd: python pipelines/clean_weather_data.py --all-years
+    deps:
+    - path: data/raw/weather
+      hash: md5
+      md5: bc48a178ed8c3e23b024af966049de80.dir
+      size: 6849926845
+      nfiles: 4320
+    - path: pipelines/clean_weather_data.py
+      hash: md5
+      md5: 62b2b6060e8d6ca8d8b1db5614a5e203
+      size: 6842
+    outs:
+    - path: data/interim/weather_clean
+      hash: md5
+      md5: 99252488b4179859bcd12451f34daa75.dir
+      size: 6749729368
+      nfiles: 12
+    - path: data/interim/weather_master.parquet
+      hash: md5
+      md5: 95c291a34577ad9218a280a08bb56b9a
+      size: 37586772

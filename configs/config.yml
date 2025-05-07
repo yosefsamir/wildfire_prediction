@@ -22,6 +22,19 @@ visualization:
     width: 10
     height: 8
 
+weather:
+  raw_dir: weather
+  interim_dir: weather_clean
+  file_pattern: "%Y%m%d.csv"
+  output_file_pattern: "weather_clean_%Y.csv"
+  master_file_name: "weather_master.parquet"
+  missing_value_indicators: [-9999]
+  years_to_process: [2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+  grid_precision: 0.1
+  grid_size_km: 1
+  clean_columns:
+    drop_threshold: 50.0
+
 general:
   random_seed: 42
   log_level: INFO

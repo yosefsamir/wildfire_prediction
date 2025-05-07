@@ -1,5 +1,0 @@
-outs:
-- md5: 064ebf44ce1ba8dac348128d1eae4340
-  size: 1078122534
-  hash: md5
-  path: weather_master.parquet
