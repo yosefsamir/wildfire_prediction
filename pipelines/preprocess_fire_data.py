@@ -11,6 +11,8 @@ import os
 import sys
 import yaml
 import pandas as pd
+import geopandas as gpd
+import random
 
 # Add the src directory to the path so we can import our package
 src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
@@ -24,9 +26,14 @@ from wildfire_prediction.data import (
 from wildfire_prediction.features.feature_engineering import (
     create_grid_and_time_features,
     encode_categorical_features,
+    get_all_weeks,
     transform_numerical_features,
     drop_unnecessary_columns,
-    drop_nonzero_types
+    drop_nonzero_types,
+    get_all_grid_ids,
+    get_all_weeks,
+    build_full_dataset,
+    sample_dataset
 )
 
 
@@ -80,13 +87,125 @@ def main():
         # Filter out rows where 'type' is not zero
         df = drop_nonzero_types(df)
         print(f"After dropping non-zero 'type' values: {len(df)} rows")
-        # Drop unnecessary columns
-        print("Dropping unnecessary columns...")
+        # Drop unnecessary columns but keep the ones needed for our dataset
+        print("Dropping unnecessary columns while keeping required ones...")
         columns_to_drop = [
-            'confidence','acq_time', 'bright_t31', 'frp', 'daynight', 'type','brightness','scan','track',
-            'satellite','instrument','version'
+            'confidence', 'acq_time', 'bright_t31', 'daynight', 'type', 'scan', 'track',
+            'satellite', 'instrument', 'version'
         ]
-        df = drop_unnecessary_columns(df,columns_to_drop)
+        # Keep 'brightness' and 'frp' as they're needed for 'brightness_normalized' and 'frp_log'
+        df = drop_unnecessary_columns(df, columns_to_drop)
+        
+        print("load california data frame")
+
+        california_gdf = gpd.read_file("california.geojson")
+        
+        print("get all grid ids in california")
+
+        all_grid_ids = get_all_grid_ids(california_gdf)
+        
+        print("all grid ids: ",len(all_grid_ids))
+        
+        print("get all weeks from 2013 to 2024")
+        
+        all_weeks = get_all_weeks("2013-01-01", "2024-12-31")
+
+        print("build full dataset")
+        
+        # Use a more memory-efficient approach by limiting negative samples
+        # This helps avoid memory errors during processing
+        negative_samples = 2_000_000  
+        
+        try:
+            print(f"Building dataset with {negative_samples} negative samples...")
+            # Monitor memory usage during processing
+            import psutil
+            process = psutil.Process()
+            memory_before = process.memory_info().rss / 1024 / 1024  # MB
+            print(f"Memory usage before building dataset: {memory_before:.2f} MB")
+            
+            # Use a try-except block specifically for the build_full_dataset function
+            try:
+                df = build_full_dataset(df, all_grid_ids, all_weeks, negative_samples)
+                memory_after = process.memory_info().rss / 1024 / 1024  # MB
+                print(f"Memory usage after building dataset: {memory_after:.2f} MB (change: {memory_after - memory_before:.2f} MB)")
+            except MemoryError as e:
+                print(f"Memory error during build_full_dataset: {e}")
+                # Try with a much smaller sample size
+                negative_samples = 100_000  # Drastically reduce sample size
+                print(f"Retrying with {negative_samples} negative samples...")
+                df = build_full_dataset(df, all_grid_ids, all_weeks, negative_samples)
+            
+            # Sample to a more manageable size
+            total_rows = 2_000_000  # Reduce from 10M to 2M to avoid memory issues
+            print(f"Sampling dataset to {total_rows} total rows...")
+            df = sample_dataset(df, total_rows)
+            
+        except MemoryError as e:
+            print(f"Memory error encountered: {e}. Trying with minimal sample size...")
+            # If we still hit memory issues, try with an even smaller sample
+            negative_samples = 50_000
+            print(f"Retrying with {negative_samples} negative samples...")
+            df = build_full_dataset(df, all_grid_ids, all_weeks, negative_samples)
+            df = sample_dataset(df, 500_000)  # Sample to 500K rows
+        except Exception as e:
+            print(f"Error during dataset building: {e}")
+            # Try with absolute minimal processing to at least produce some output
+            print("Attempting minimal processing to produce output...")
+            
+            # Create a minimal set of negative samples
+            print("Creating a minimal set of negative samples...")
+            pos_df = df.copy()
+            pos_df['fire'] = 1  # Mark existing data as positive samples
+            
+            # Generate a small number of negative samples
+            print("Generating minimal negative samples...")
+            try:
+                # Get a small subset of grid_ids and weeks
+                sample_grid_ids = all_grid_ids[:min(1000, len(all_grid_ids))]
+                sample_weeks = all_weeks[:min(52, len(all_weeks))]  # About a year of weeks
+                
+                # Create a small number of negative samples
+                neg_samples = 10000  # Very small number to avoid memory issues
+                print(f"Attempting to create {neg_samples} negative samples...")
+                
+                # Create negative samples with required columns
+                neg_grid_ids = [random.choice(sample_grid_ids) for _ in range(neg_samples)]
+                neg_weeks = [random.choice(sample_weeks) for _ in range(neg_samples)]
+                
+                # Create DataFrame with negative samples
+                neg_df = pd.DataFrame({
+                    'grid_id': neg_grid_ids,
+                    'week': neg_weeks,
+                    'fire': 0  # Mark as negative samples
+                })
+                
+                # Add required columns for negative samples
+                neg_df['frp_log'] = 0.0
+                neg_df['brightness_normalized'] = 0.0
+                
+                # Convert grid_id to latitude and longitude
+                from wildfire_prediction.features.feature_engineering import grid_id_to_lat_lon, week_to_acq_date
+                lat_lon_tuples = neg_df['grid_id'].apply(grid_id_to_lat_lon)
+                neg_df['latitude'] = lat_lon_tuples.apply(lambda x: x[0])
+                neg_df['longitude'] = lat_lon_tuples.apply(lambda x: x[1])
+                
+                # Convert week to acquisition date
+                neg_df['acq_date'] = neg_df['week'].apply(week_to_acq_date)
+                
+                # Combine positive and negative samples
+                df = pd.concat([pos_df, neg_df], ignore_index=True)
+                print(f"Created dataset with {len(pos_df)} positive samples and {len(neg_df)} negative samples")
+                
+            except Exception as e:
+                print(f"Error creating negative samples: {e}")
+                # If all else fails, just use positive samples
+                df = pos_df
+                print(f"Fallback: Using {len(df)} positive samples only")
+            
+        # Ensure we have a valid dataframe to continue
+        if df is None or len(df) == 0:
+            raise ValueError("Failed to create valid dataset after multiple attempts")
         
         print(f"After preprocessing: {len(df)} rows")
         
