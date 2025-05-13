@@ -4,15 +4,22 @@ train:
   test_size: 0.2
   random_state: 42
   cv_folds: 5
+  sample_data: true # For development/testing
+  sample_size: 100000 # Number of samples to use
 
 model:
-  type: random_forest
+  type: xgboost
   params:
-    n_estimators: 100
-    max_depth: 20
-    min_samples_split: 2
-    min_samples_leaf: 1
-    bootstrap: true
+    n_estimators: 200
+    max_depth: 8
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 3
+    gamma: 0.1
+    scale_pos_weight: 10 # Helps with class imbalance
+    objective: binary:logistic
+    eval_metric: auc
     random_state: 42
 
 feature_engineering:
@@ -23,7 +30,8 @@ feature_engineering:
   feature_columns:
     - frp_log
     - brightness_normalized
-    - confidence_encoded
-    - is_day
-    - month
-    - day_of_year
+    - vpdmax # Maximum vapor pressure deficit
+    - tmax # Maximum temperature
+    - ppt # Precipitation
+    - grid_id # Spatial information
+    - week # Temporal information
