@@ -20,5 +20,16 @@ from .weather_processing import (
     extract_date_from_filename,
     clean_weather_file,
     merge_yearly_weather_files,
-    add_grid_to_weather_data
+    add_grid_to_weather_data,
+    load_fire_unique_grids_and_weeks
+)
+
+from .merge_weather_fire import (
+    load_and_prepare_fire_data,
+    process_year,
+    WEATHER_PATH,
+    FIRE_PATH,
+    OUTPUT_PATH,
+    BUFFER_DEGREES,
+    TEMPORAL_TOLERANCE
 )

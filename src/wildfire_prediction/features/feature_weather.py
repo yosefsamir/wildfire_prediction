@@ -1,301 +1,386 @@
-"""
-California Wildfire Feature Engineering (Daily Data)
+"""Weather feature engineering for wildfire prediction.
 
-Optimized for:
-- Daily temporal resolution
-- California's geographic diversity
-- Large datasets (23,913 points/day)
-- Memory efficiency
+This module contains functions for creating and transforming weather features 
+specifically for wildfire prediction in California.
 """
 
-import numpy as np
 import pandas as pd
-from scipy.stats import gamma, norm
-from sklearn.cluster import KMeans, DBSCAN
-from sklearn.metrics.pairwise import haversine_distances
-import warnings
-from tqdm import tqdm  # For progress tracking
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from scipy import stats
+import logging
 
-# Global feature statistics tracker
-FEATURE_STATS = {
-    'execution_time': {},
-    'memory_usage': {}
-}
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def calculate_hot_dry_index(df, window=7, normalize=True):
+def calculate_hot_dry_index(df, tmax_col='tmax', ppt_col='ppt', threshold_temp=25.0, threshold_ppt=1.0):
     """
-    California-optimized Hot-Dry Index with rolling window.
+    Calculate a hot-dry index for wildfire risk assessment.
+    High temperatures combined with low precipitation increase wildfire risk.
     
-    Parameters:
-    -----------
-    df : pd.DataFrame with ['tmax', 'ppt']
-    window : int (days for rolling average)
-    normalize : bool (scale to 0-1)
-    
+    Args:
+        df: DataFrame with temperature and precipitation data
+        tmax_col: Column name for maximum temperature
+        ppt_col: Column name for precipitation
+        threshold_temp: Temperature threshold (C) for high risk
+        threshold_ppt: Precipitation threshold (mm) for low rainfall
+        
     Returns:
-    --------
-    pd.Series
+        DataFrame with added hot_dry_index column
     """
-    try:
-        # 7-day rolling averages (optimal for daily data)
-        tmax_avg = df['tmax'].rolling(window, min_periods=3).mean()
-        ppt_sum = df['ppt'].rolling(window, min_periods=3).sum()
-        
-        hdi = tmax_avg * (1 / (ppt_sum + 0.1))  # Avoid division by zero
-        
-        # California-specific normalization
-        stats = {
-            'min': 0,  # Theoretical minimum
-            'max': 150, # California observed max
-            'mean': hdi.mean()
-        }
-        
-        if normalize:
-            hdi = np.clip((hdi - stats['min']) / (stats['max'] - stats['min']), 0, 1)
-            
-        FEATURE_STATS['hot_dry_index'] = stats
-        return hdi
-        
-    except Exception as e:
-        warnings.warn(f"Hot-Dry Index failed: {str(e)}")
-        return pd.Series(np.nan, index=df.index)
-
-def calculate_spi_ca_daily(precip_series, window=6, min_years=10):
-    """
-    California-optimized SPI for daily data.
-    
-    Parameters:
-    -----------
-    precip_series : pd.Series (daily precipitation)
-    window : int (months for SPI calculation)
-    min_years : int (minimum years for reliable SPI)
-    
-    Returns:
-    --------
-    pd.Series (daily SPI values)
-    """
-    try:
-        # Resample to monthly first
-        monthly = precip_series.resample('M').sum()
-        
-        if len(monthly) < 12 * min_years:
-            warnings.warn(f"Insufficient data for {window}-month SPI")
-            return pd.Series(np.nan, index=precip_series.index)
-            
-        # Calculate rolling sums
-        rolling_sum = monthly.rolling(window).sum().dropna()
-        
-        # Fit gamma distribution using L-moments (better for precipitation)
-        params = gamma.fit(rolling_sum[rolling_sum > 0], method='lmoments')
-        
-        # Calculate SPI
-        spi_monthly = pd.Series(index=monthly.index, dtype=float)
-        valid_mask = rolling_sum > 0
-        spi_monthly[valid_mask] = norm.ppf(gamma.cdf(rolling_sum[valid_mask], *params))
-        
-        # Handle zeros
-        zero_mask = (rolling_sum == 0) & ~rolling_sum.isna()
-        if zero_mask.any():
-            p_zero = zero_mask.mean()
-            spi_monthly[zero_mask] = norm.ppf(p_zero / 2)
-        
-        # Map back to daily
-        spi_daily = spi_monthly.reindex(precip_series.index, method='ffill')
-        
-        FEATURE_STATS['spi'] = {
-            'window': f"{window}-month",
-            'zeros_pct': zero_mask.mean(),
-            'mean': spi_daily.mean()
-        }
-        
-        return spi_daily
-        
-    except Exception as e:
-        warnings.warn(f"SPI calculation failed: {str(e)}")
-        return pd.Series(np.nan, index=precip_series.index)
-
-def calculate_vpd_extreme_ca(df, thresholds=(3.0, 4.0)):
-    """
-    California-specific VPD extremes with elevation adjustment.
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame with ['vbdmax', (optional 'elevation')]
-    thresholds : tuple (coastal, inland thresholds in kPa)
-    
-    Returns:
-    --------
-    tuple (instant_extreme, rolling_7day_extreme)
-    """
-    try:
-        coastal_thresh, inland_thresh = thresholds
-        
-        # Adjust threshold by elevation if available
-        if 'elevation' in df.columns:
-            thresh = np.where(df['elevation'] < 500, coastal_thresh, inland_thresh)
-        else:
-            thresh = coastal_thresh  # Default to coastal threshold
-            
-        # Calculate extremes
-        instant = (df['vbdmax'] > thresh).astype(int)
-        rolling = (df['vbdmax'].rolling(7).mean() > thresh).astype(int)
-        
-        FEATURE_STATS['vpd_extreme'] = {
-            'thresholds': thresholds,
-            'pct_extreme': instant.mean()
-        }
-        
-        return instant, rolling
-        
-    except Exception as e:
-        warnings.warn(f"VPD Extreme failed: {str(e)}")
-        return (pd.Series(0, index=df.index)), (pd.Series(0, index=df.index))
-
-def add_ca_temporal_features(df, date_col='date'):
-    """
-    California-optimized temporal features.
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-    date_col : str (date column name)
-    
-    Returns:
-    --------
-    pd.DataFrame with added features
-    """
-    try:
-        df = df.copy()
-        dates = pd.to_datetime(df[date_col])
-        
-        # Basic features
-        df['year'] = dates.dt.year
-        df['month'] = dates.dt.month
-        df['day_of_year'] = dates.dt.dayofyear
-        
-        # California fire season (May-Oct)
-        df['fire_season'] = df['month'].between(5, 10).astype(int)
-        
-        # Cyclical features
-        df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
-        df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
-        df['day_sin'] = np.sin(2 * np.pi * df['day_of_year'] / 365.25)
-        df['day_cos'] = np.cos(2 * np.pi * df['day_of_year'] / 365.25)
-        
-        
+    if tmax_col not in df.columns or ppt_col not in df.columns:
+        logger.warning(f"Required columns missing. Cannot calculate hot_dry_index")
+        df['hot_dry_index'] = 0.0
         return df
-        
-    except Exception as e:
-        warnings.warn(f"Temporal features failed: {str(e)}")
-        return df
+    
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
+    
+    # Calculate hot-dry index: normalized temperature - normalized precipitation
+    # Higher values indicate hotter and drier conditions (higher fire risk)
+    t_norm = (result_df[tmax_col] - result_df[tmax_col].min()) / (result_df[tmax_col].max() - result_df[tmax_col].min() + 1e-8)
+    p_norm = (result_df[ppt_col] - result_df[ppt_col].min()) / (result_df[ppt_col].max() - result_df[ppt_col].min() + 1e-8)
+    
+    # Invert precipitation (lower rainfall = higher risk)
+    p_norm_inv = 1 - p_norm
+    
+    # Calculate index (0-2 range, higher = more risk)
+    result_df['hot_dry_index'] = t_norm + p_norm_inv
+    
+    # Add binary flags for extreme conditions
+    result_df['high_temp_day'] = (result_df[tmax_col] > threshold_temp).astype(int)
+    result_df['low_rain_day'] = (result_df[ppt_col] < threshold_ppt).astype(int)
+    
+    # Calculate hot-dry streak - consecutive days with high temps and low rain
+    # (As our data may not be continuous by day, we'll use a binary flag)
+    result_df['hot_dry_day'] = ((result_df['high_temp_day'] == 1) & 
+                              (result_df['low_rain_day'] == 1)).astype(int)
+    
+    return result_df
 
-def calculate_ca_clusters(df, method='dbscan', eps_km=30, min_samples=10):
+def calculate_spi_ca_daily(df, ppt_col='ppt', lookback_days=30,  min_periods=10, lat_lon_bins=0.5):
     """
-    California-optimized spatial clustering.
+    Calculate Standardized Precipitation Index (SPI) for California weather data.
+    SPI is useful for drought monitoring, which affects wildfire risk.
     
-    Parameters:
-    -----------
-    df : pd.DataFrame with ['latitude', 'longitude']
-    method : str ('dbscan' or 'kmeans')
-    eps_km : float (DBSCAN radius in km)
-    min_samples : int (minimum cluster size)
-    
+    Args:
+        df: DataFrame with precipitation data
+        ppt_col: Column name for precipitation
+        lookback_days: Number of days to look back for SPI calculation
+        min_periods: Minimum number of periods required for calculation
+        lat_lon_bins: Size of latitude/longitude bins for spatial grouping when grid_id is unavailable
+        
     Returns:
-    --------
-    pd.Series (cluster labels)
+        DataFrame with added SPI columns
     """
-    try:
-        coords = df[['latitude', 'longitude']].dropna()
+    if ppt_col not in df.columns or 'date' not in df.columns:
+        logger.warning(f"Required columns missing. Cannot calculate SPI")
+        df['spi_short'] = 0.0
+        return df
+    
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
+    
+    # Ensure date is datetime type
+    if not pd.api.types.is_datetime64_any_dtype(result_df['date']):
+        result_df['date'] = pd.to_datetime(result_df['date'])
+    
+    # Initialize SPI columns
+    result_df['spi_short'] = np.nan
+    result_df['spi_medium'] = np.nan
+    
         
-        if len(coords) < 100:  # Fallback for small datasets
-            method = 'kmeans'
-            n_clusters = min(5, len(coords)//20)
+    # Calculate rolling precipitation for different windows across the whole dataset
+    rolling_30d = result_df[ppt_col].rolling(window=lookback_days, min_periods=min_periods).sum()
+    rolling_90d = result_df[ppt_col].rolling(window=lookback_days*3, min_periods=min_periods*2).sum()
+    
+    # Calculate SPI
+    if rolling_30d.std() > 0:
+        result_df['spi_short'] = (rolling_30d - rolling_30d.mean()) / rolling_30d.std()
+    else:
+        result_df['spi_short'] = 0.0
         
-        # Convert to radians for Haversine
-        coords_rad = np.radians(coords.values)
-        distances = haversine_distances(coords_rad) * 6371  # km
+    if rolling_90d.std() > 0:
+        result_df['spi_medium'] = (rolling_90d - rolling_90d.mean()) / rolling_90d.std()
+    else:
+        result_df['spi_medium'] = 0.0
         
-        if method == 'dbscan':
-            labels = DBSCAN(eps=eps_km, min_samples=min_samples, 
-                           metric='precomputed').fit_predict(distances)
+    # Skip to drought categorization
+    result_df['spi_short'] = result_df['spi_short'].fillna(0)
+    result_df['spi_medium'] = result_df['spi_medium'].fillna(0)
+    
+    result_df['drought_category'] = pd.cut(
+        result_df['spi_short'], 
+        bins=[-float('inf'), -2, -1.5, -1, -0.5, 0.5, float('inf')],
+        labels=[5, 4, 3, 2, 1, 0]  # Higher values indicate more severe drought
+    ).astype('int')
+    
+    return result_df
+    
+def calculate_vpd_extreme_ca(df, vpd_col='vbdmax', percentile_threshold=90):
+    """
+    Calculate extreme vapor pressure deficit (VPD) indicators for California.
+    High VPD is associated with increased wildfire risk.
+    
+    Args:
+        df: DataFrame with VPD data
+        vpd_col: Column name for VPD
+        percentile_threshold: Percentile threshold for extreme values
+        
+    Returns:
+        DataFrame with added VPD extreme columns
+    """
+    if vpd_col not in df.columns:
+        logger.warning(f"Required column '{vpd_col}' missing. Cannot calculate VPD extremes")
+        df['vpd_anomaly'] = 0.0
+        df['vpd_extreme'] = 0
+        return df
+    
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
+    
+    # Calculate the percentile threshold for the entire dataset
+    vpd_threshold = np.nanpercentile(result_df[vpd_col], percentile_threshold)
+    
+    # Create binary indicator for extreme VPD
+    result_df['vpd_extreme'] = (result_df[vpd_col] > vpd_threshold).astype(int)
+    
+    # Calculate anomaly (departure from average)
+    vpd_mean = result_df[vpd_col].mean()
+    vpd_std = result_df[vpd_col].std()
+    
+    if vpd_std > 0:
+        result_df['vpd_anomaly'] = (result_df[vpd_col] - vpd_mean) / vpd_std
+    else:
+        result_df['vpd_anomaly'] = 0.0
+    
+    # Group VPD into categories for risk assessment
+    result_df['vpd_risk_category'] = pd.qcut(
+        result_df[vpd_col].rank(method='first'),  # Use rank to handle ties
+        q=5,  # 5 categories
+        labels=[1, 2, 3, 4, 5]  # 5 is highest risk
+    ).astype('int')
+    
+    return result_df
+
+def add_ca_temporal_features(df):
+    """
+    Add California-specific temporal features for wildfire prediction.
+    
+    Args:
+        df: DataFrame with date column
+        
+    Returns:
+        DataFrame with added temporal features
+    """
+    if 'date' not in df.columns:
+        logger.warning("Date column missing. Cannot add temporal features")
+        df['is_fire_season'] = 0
+        return df
+    
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
+    
+    # Ensure date is datetime type
+    if not pd.api.types.is_datetime64_any_dtype(result_df['date']):
+        result_df['date'] = pd.to_datetime(result_df['date'])
+    
+    # Extract date components if not already present
+    if 'month' not in result_df.columns:
+        result_df['month'] = result_df['date'].dt.month
+    
+    if 'day_of_year' not in result_df.columns:
+        result_df['day_of_year'] = result_df['date'].dt.dayofyear
+    
+    # Define CA-specific fire seasons and high-risk periods
+    
+    # Fire season indicator (mainly summer and fall in California)
+    # Main fire season: June through October (months 6-10)
+    result_df['is_fire_season'] = result_df['month'].between(6, 10).astype(int)
+    
+    # Santa Ana wind season (typically Oct-Apr in Southern California)
+    result_df['is_santa_ana_season'] = ((result_df['month'] >= 10) | 
+                                         (result_df['month'] <= 4)).astype(int)
+    
+    # Define seasons
+    conditions = [
+        (result_df['month'].isin([12, 1, 2])),  # Winter
+        (result_df['month'].isin([3, 4, 5])),   # Spring
+        (result_df['month'].isin([6, 7, 8])),   # Summer
+        (result_df['month'].isin([9, 10, 11]))  # Fall
+    ]
+    seasons = [0, 1, 2, 3]  # 0=Winter, 1=Spring, 2=Summer, 3=Fall
+    result_df['season'] = np.select(conditions, seasons, default=0)
+    
+    # Weekly trend (cyclic transformation to maintain continuity)
+    week_in_year = result_df['day_of_year'] // 7
+    max_week = 52
+    # Cyclic encoding using sine and cosine transform
+    result_df['week_sin'] = np.sin(2 * np.pi * week_in_year / max_week)
+    result_df['week_cos'] = np.cos(2 * np.pi * week_in_year / max_week)
+    
+    # Monthly trend (cyclic transformation)
+    result_df['month_sin'] = np.sin(2 * np.pi * result_df['month'] / 12)
+    result_df['month_cos'] = np.cos(2 * np.pi * result_df['month'] / 12)
+    
+    return result_df
+
+
+def calculate_compound_indices(df):
+    """
+    Calculate compound indices from multiple variables for wildfire risk assessment.
+    
+    Args:
+        df: DataFrame with processed weather features
+        
+    Returns:
+        DataFrame with added compound indices
+    """
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
+    
+    # Check which features are available
+    has_hot_dry = 'hot_dry_index' in df.columns
+    has_vpd = 'vpd_risk_category' in df.columns
+    has_spi = 'drought_category' in df.columns
+    has_wind = 'wind_risk' in df.columns
+    
+    # Composite Fire Weather Index (FWI) - combined risk from temperature, precipitation, and VPD
+    if has_hot_dry and has_vpd:
+        # Normalize hot_dry_index to 0-5 scale for consistency with other indicators
+        hot_dry_norm = 5 * (result_df['hot_dry_index'] - result_df['hot_dry_index'].min()) / (
+            result_df['hot_dry_index'].max() - result_df['hot_dry_index'].min() + 1e-8)
+        
+        # Calculate FWI as weighted average of hot-dry index and VPD risk
+        result_df['fire_weather_index'] = (0.5 * hot_dry_norm + 
+                                          0.5 * result_df['vpd_risk_category'])
+    else:
+        # Use whatever is available
+        if has_hot_dry:
+            hot_dry_norm = 5 * (result_df['hot_dry_index'] - result_df['hot_dry_index'].min()) / (
+                result_df['hot_dry_index'].max() - result_df['hot_dry_index'].min() + 1e-8)
+            result_df['fire_weather_index'] = hot_dry_norm
+        elif has_vpd:
+            result_df['fire_weather_index'] = result_df['vpd_risk_category']
         else:
-            labels = KMeans(n_clusters=n_clusters).fit_predict(distances)
-        
-        # Map back to original index
-        result = pd.Series(np.nan, index=df.index)
-        result.loc[coords.index] = labels
-        
-        FEATURE_STATS['spatial_clusters'] = {
-            'method': method,
-            'n_clusters': len(np.unique(labels[labels != -1])),
-            'noise_pct': (labels == -1).mean() if method == 'dbscan' else 0
-        }
-        
-        return result
-        
-    except Exception as e:
-        warnings.warn(f"Clustering failed: {str(e)}")
-        return pd.Series(np.nan, index=df.index)
+            result_df['fire_weather_index'] = 1  # Default to low risk
+    
+    # Long-term Drought and Weather Index - combines drought status with current weather
+    if has_spi and has_hot_dry:
+        # Weight drought more heavily for long-term index
+        result_df['drought_weather_index'] = (0.7 * result_df['drought_category'] + 
+                                             0.3 * hot_dry_norm)
+    else:
+        if has_spi:
+            result_df['drought_weather_index'] = result_df['drought_category']
+        elif has_hot_dry:
+            result_df['drought_weather_index'] = hot_dry_norm
+        else:
+            result_df['drought_weather_index'] = 1  # Default to low risk
+    
+    # Comprehensive Fire Risk Index - includes all factors
+    if has_hot_dry and has_vpd and has_spi:
+        # Equal weights to each factor, adjusted for missing wind
+        if has_wind:
+            result_df['fire_risk_index'] = (0.25 * hot_dry_norm + 
+                                          0.25 * result_df['vpd_risk_category'] +
+                                          0.25 * result_df['drought_category'] +
+                                          0.25 * result_df['wind_risk'])
+        else:
+            result_df['fire_risk_index'] = (0.33 * hot_dry_norm + 
+                                          0.33 * result_df['vpd_risk_category'] +
+                                          0.34 * result_df['drought_category'])
+    else:
+        # Use fire_weather_index as fallback
+        result_df['fire_risk_index'] = result_df['fire_weather_index']
+    
+    return result_df
 
 def engineer_ca_features(df, config=None):
     """
-    Complete California wildfire feature engineering pipeline.
+    Apply California-specific weather feature engineering.
+    This is the main function that combines all feature engineering steps.
     
-    Parameters:
-    -----------
-    df : pd.DataFrame (daily California data)
-    config : dict (override default parameters)
+    Args:
+        df: DataFrame with weather data
+        config: Configuration dictionary for feature engineering
     
     Returns:
-    --------
-    pd.DataFrame with engineered features
+        DataFrame with engineered features
     """
-    # Default configuration (optimized for California)
-    default_config = {
-        'hot_dry_window': 7,
-        'spi_window': 12,  # 12-month SPI for drought monitoring
-        'vpd_thresholds': (3.0, 4.0),  # (coastal, inland)
-        'cluster_method': 'dbscan',
-        'cluster_eps_km': 30,
-        'min_cluster_samples': 10
-    }
-    cfg = {**default_config, **(config or {})}
+    if config is None:
+        config = {}
     
-    # Track memory usage
-    start_mem = df.memory_usage().sum() / 1024**2
+    # Extract configuration parameters with defaults
+    include_hot_dry = config.get('include_hot_dry', True)
+    include_spi = config.get('include_spi', True)
+    include_vpd = config.get('include_vpd', True)
+    include_temporal = config.get('include_temporal', True)
+    include_compound = config.get('include_compound', True)
+        
+    # SPI calculation parameters
+    lat_lon_bins = config.get('lat_lon_bins', 0.5)
     
-    # 1. Temporal features (always calculated if date exists)
-    if 'date' in df.columns:
-        df = add_ca_temporal_features(df)
+    # Validate input dataframe
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    if df.empty:
+        logger.warning("Input DataFrame is empty")
+        return df.copy()
     
-    # 2. Hot-Dry Index (requires tmax and ppt)
-    if {'tmax', 'ppt'}.issubset(df.columns):
-        df['hot_dry_index'] = calculate_hot_dry_index(df, window=cfg['hot_dry_window'])
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
     
-    # 3. SPI (requires ppt)
-    if 'ppt' in df.columns:
-        df['spi'] = calculate_spi_ca_daily(df.set_index('date')['ppt'], 
-                                         window=cfg['spi_window'])
+    # Log input data characteristics
+    logger.info(f"Input data shape: {result_df.shape}")
+    logger.info(f"Input data columns: {', '.join(result_df.columns)}")
     
-    # 4. VPD Extremes (requires vbdmax)
-    if 'vbdmax' in df.columns:
-        df['vpd_instant'], df['vpd_rolling'] = calculate_vpd_extreme_ca(
-            df, thresholds=cfg['vpd_thresholds'])
+    # Check for spatial columns
+    has_coords = 'longitude' in result_df.columns and 'latitude' in result_df.columns
+    has_grid = 'grid_id' in result_df.columns
     
-    # 5. Spatial Clusters (requires lat/lon)
-    if {'latitude', 'longitude'}.issubset(df.columns):
-        df['cluster_id'] = calculate_ca_clusters(
-            df,
-            method=cfg['cluster_method'],
-            eps_km=cfg['cluster_eps_km'],
-            min_samples=cfg['min_cluster_samples'])
+    if has_coords:
+        logger.info("Using lat/lon coordinates for spatial analysis")
+    elif has_grid:
+        logger.info("Using grid_id for spatial analysis")
+    else:
+        logger.warning("No spatial coordinates found. Some features may be limited.")
     
-    # Track memory usage
-    end_mem = df.memory_usage().sum() / 1024**2
-    FEATURE_STATS['memory_usage'] = {
-        'start_mb': start_mem,
-        'end_mb': end_mem,
-        'increase_mb': end_mem - start_mem
-    }
-
-    return df
+    # Apply feature engineering steps based on configuration
+    try:
+        # 1. Hot-dry index features
+        if include_hot_dry and 'tmax' in result_df.columns and 'ppt' in result_df.columns:
+            logger.info("Calculating hot-dry index")
+            result_df = calculate_hot_dry_index(result_df)
+        
+        # 2. SPI features
+        if include_spi and 'ppt' in result_df.columns and 'date' in result_df.columns:
+            logger.info("Calculating SPI features")
+            result_df = calculate_spi_ca_daily(result_df, lat_lon_bins=lat_lon_bins)
+        
+        # 3. VPD features
+        if include_vpd and 'vbdmax' in result_df.columns:
+            logger.info("Calculating VPD features")
+            result_df = calculate_vpd_extreme_ca(result_df)
+        
+        # 4. Temporal features
+        if include_temporal and 'date' in result_df.columns:
+            logger.info("Adding temporal features")
+            result_df = add_ca_temporal_features(result_df)
+        
+        # 5. Compound indices
+        if include_compound:
+            logger.info("Calculating compound risk indices")
+            result_df = calculate_compound_indices(result_df)
+        
+    except Exception as e:
+        logger.error(f"Error during feature engineering: {str(e)}")
+        raise
+    
+    # Log output data characteristics
+    new_features = set(result_df.columns) - set(df.columns)
+    logger.info(f"Added {len(new_features)} new features: {', '.join(new_features)}")
+    
+    return result_df
