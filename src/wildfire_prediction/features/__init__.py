@@ -15,3 +15,8 @@ from .feature_engineering import (
     build_full_dataset,
     sample_dataset
 )
+
+
+from .feature_weather import(
+    engineer_ca_features
+)

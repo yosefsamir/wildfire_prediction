@@ -351,10 +351,101 @@ def add_grid_to_weather_data(df, grid_size_km=1):
     df['grid_id'] = df.apply(
         lambda row: lat_lon_to_utm_grid(row['latitude'], row['longitude'], grid_size_km), axis=1
     )
+
+    if not pd.api.types.is_datetime64_any_dtype(df['date']):
+        df['date'] = pd.to_datetime(df['date'])
     
+    # Create time-based features
+    df['week'] = df['date'].dt.to_period('W')
     # Log grid ID counts for debugging
     grid_count = df['grid_id'].nunique()
     logger.info(f"Created {grid_count} unique grid cells")
     
     logger.info(f"After adding grid IDs to weather data: {len(df)} rows")
     return df
+
+
+def load_fire_unique_grids_and_weeks(fire_data_path):
+    """
+    Load california wildfire data to extract unique grid_id values and unique week values separately.
+    
+    Args:
+        fire_data_path: Path to the california_wildfires.csv file
+        
+    Returns:
+        tuple: (set_of_unique_grid_ids, set_of_unique_weeks)
+    """
+    logger.info(f"Loading fire data from {fire_data_path} to extract unique grid_ids and weeks...")
+    
+    # Create sets to store unique values
+    unique_grids = set()
+    unique_weeks = set()
+    
+    try:
+        for chunk in pd.read_csv(fire_data_path, chunksize=500000):
+            # Validate required columns
+            if 'grid_id' not in chunk.columns:
+                logger.error("Fire data missing required column: grid_id")
+                raise ValueError("Fire data missing required column: grid_id")
+            
+            # Handle week column
+            if 'week' not in chunk.columns:
+                if 'date' not in chunk.columns:
+                    logger.error("Fire data missing both 'week' and 'date' columns")
+                    raise ValueError("Fire data missing both 'week' and 'date' columns")
+                chunk['date'] = pd.to_datetime(chunk['date'])
+                chunk['week'] = chunk['date'].dt.to_period('W').astype(str)
+            
+            # Standardize week format to string
+            chunk['week'] = chunk['week'].astype(str)
+            
+            # Update unique sets
+            unique_grids.update(chunk['grid_id'].unique())
+            unique_weeks.update(chunk['week'].unique())
+            
+            logger.info(f"Processed chunk: {len(unique_grids)} unique grids, {len(unique_weeks)} unique weeks so far")
+        
+        logger.info(f"Completed loading. Found {len(unique_grids)} unique grids and {len(unique_weeks)} unique weeks")
+        return unique_grids, unique_weeks
+        
+    except Exception as e:
+        logger.error(f"Error loading fire data: {e}")
+        raise
+
+
+
+def filter_chunk_by_fire_data(chunk, unique_grids, unique_weeks):
+    """
+    Filter a chunk of weather data to keep records where either:
+    - grid_id is in unique_grids, OR
+    - week is in unique_weeks
+    
+    Args:
+        chunk: DataFrame chunk containing weather data
+        unique_grids: Set of unique grid_id values to match
+        unique_weeks: Set of unique week values to match
+        
+    Returns:
+        pd.DataFrame: Filtered chunk containing matching rows
+    """
+    # --- Step 1: Ensure week column exists in consistent string format ---
+    if 'week' not in chunk.columns:
+        if 'date' not in chunk.columns:
+            raise ValueError("Data must contain either 'week' or 'date' column")
+        chunk['date'] = pd.to_datetime(chunk['date'])
+        chunk['week'] = chunk['date'].dt.to_period('W').astype(str)
+    else:
+        chunk['week'] = chunk['week'].astype(str)  # Ensure string format
+    
+    # --- Step 2: Vectorized filtering (OR condition) ---
+    grid_mask = chunk['grid_id'].isin(unique_grids)
+    week_mask = chunk['week'].isin(unique_weeks)
+    combined_mask = grid_mask | week_mask  
+    
+    filtered_chunk = chunk[combined_mask]
+    
+    logger.info(
+        f"Filtered from {len(chunk)} to {len(filtered_chunk)} rows "
+        f"(grid matches: {grid_mask.sum()}, week matches: {week_mask.sum()})"
+    )
+    return filtered_chunk

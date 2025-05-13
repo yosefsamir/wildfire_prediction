@@ -1,181 +1,197 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""Pipeline script for applying weather features to cleaned weather data.
-
-This script loads cleaned weather data from the interim folder,
-applies California-specific weather feature engineering techniques,
-and saves the enhanced weather datasets to the processed folder.
-"""
-
+import logging
 import os
-import sys
+from pathlib import Path
+import numpy as np
+import dask.dataframe as dd
+from dask.distributed import Client, LocalCluster, progress
 import pandas as pd
-import glob
+import pyarrow as pa
+import pyarrow.parquet as pq
 from tqdm import tqdm
-import yaml
 
-# Add the src directory to the path so we can import our package
-src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
-sys.path.append(src_dir)
-
-from wildfire_prediction.data import (
-    get_project_paths,
-    save_processed_data
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
 
-from wildfire_prediction.features.feature_weather import (
-    calculate_hot_dry_index,
-    calculate_spi_ca_daily,
-    calculate_vpd_extreme_ca,
-    add_ca_temporal_features,
-    calculate_ca_clusters,
-    engineer_ca_features
-)
+class WildfireFeaturePipeline:
+    def __init__(self, config=None):
+        """Initialize pipeline with configuration"""
+        self.config = config or {
+            'input_path': None,
+            'output_dir': './processed_features',
+            'feature_config': {
+                'include_hot_dry': True,
+                'include_spi': True,
+                'include_vpd': True,
+                'include_temporal': True,
+                'include_compound': True
+            },
+            'dask_config': {
+                'n_workers': 8,               # Increased for 100M records
+                'threads_per_worker': 1,
+                'memory_limit': '16GB',       # Increased memory
+                'shuffle_method': 'disk'      # Prevent OOM
+            }
+        }
+        
+        # Validate paths
+        self.input_path = Path(self.config['input_path'])
+        self.output_dir = Path(self.config['output_dir'])
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize Dask
+        self.cluster = LocalCluster(
+            n_workers=self.config['dask_config']['n_workers'],
+            threads_per_worker=self.config['dask_config']['threads_per_worker'],
+            memory_limit=self.config['dask_config']['memory_limit']
+        )
+        self.client = Client(self.cluster)
+        logger.info(f"Dask dashboard: {self.client.dashboard_link}")
 
+    def _add_location_ids(self, ddf):
+        """Create unique IDs for each exact lat/lon combination"""
+        logger.info("Adding location IDs...")
+        with tqdm(total=1, desc="Creating location IDs") as pbar:
+            ddf = ddf.assign(
+                location_id=lambda x: (
+                    x['latitude'].round(6).astype(str) + 
+                    '_' + 
+                    x['longitude'].round(6).astype(str)
+                ).astype('category')  # Better for memory with many locations
+            )
+            pbar.update(1)
+        return ddf
 
-def main():
-    """Main function to apply California-specific weather features to cleaned weather data."""
-    try:
-        # Load configuration
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                  'configs', 'config.yml')
-        
-        # Load config directly to get the years to process
-        with open(config_path, 'r') as config_file:
-            config = yaml.safe_load(config_file)
-        
-        # Get years to process from the configuration
-        years_to_process = config.get('weather', {}).get('years_to_process', [])
-        if not years_to_process:
-            print("Warning: No years specified in config.yml. Will process all available years.")
-        else:
-            # Convert years to strings for directory matching
-            years_to_process = [str(year) for year in years_to_process]
-            print(f"Using years from config file: {years_to_process}")
-        
-        # Get project paths
-        paths = get_project_paths(config_path)
-        
-        # Define the input and output directories
-        weather_clean_dir = paths['interim_data']
-        weather_processed_dir = paths['processed_data']
-        
-        # Ensure the output directory exists
-        os.makedirs(weather_processed_dir, exist_ok=True)
-        
-        # Check if the clean weather directory exists
-        if not os.path.exists(weather_clean_dir):
-            raise FileNotFoundError(f"Cleaned weather data directory not found at: {weather_clean_dir}")
-        
-        # Get all years in the weather_clean directory 
-        available_years = [d for d in os.listdir(weather_clean_dir) 
-                if os.path.isdir(os.path.join(weather_clean_dir, d))]
-        
-        if not available_years:
-            raise FileNotFoundError(f"No year folders found in {weather_clean_dir}")
-        
-        # Filter years based on configuration if specified
-        if years_to_process:
-            years = [year for year in available_years if year in years_to_process]
-            if not years:
-                print(f"Warning: None of the specified years {years_to_process} found in {weather_clean_dir}")
-                print(f"Available years: {available_years}")
-                print("Processing all available years instead.")
-                years = available_years
-        else:
-            years = available_years
-        
-        print(f"Processing {len(years)} years of California weather data: {years}")
-        
-        # Get CA-specific feature engineering config if available
-        ca_feature_config = config.get('features', {}).get('california', {})
-        
-        # Process each year's data
-        for year in years:
-            year_dir = os.path.join(weather_clean_dir, year)
-            output_year_dir = os.path.join(weather_processed_dir, year)
-            os.makedirs(output_year_dir, exist_ok=True)
+    def _process_single_location(self, location_df):
+        """Process data for a single location (guaranteed complete temporal data)"""
+        try:
+            # Convert to Pandas (now safe - all data is here)
+            pdf = location_df.compute().sort_values('date')
             
-            # Get all weather data files for this year
-            weather_files = glob.glob(os.path.join(year_dir, "*.csv"))
+            # Your feature engineering here
+            # Example:
+            if self.config['feature_config']['include_temporal']:
+                pdf['7d_avg_temp'] = pdf['tmax'].rolling(7).mean()
             
-            if not weather_files:
-                print(f"Warning: No weather data files found for year {year}")
-                continue
-                
-            print(f"Processing {len(weather_files)} California weather files for year {year}...")
+            return pdf
             
-            # Process each weather file
-            for file_path in tqdm(weather_files):
-                file_name = os.path.basename(file_path)
-                output_file = os.path.join(output_year_dir, f"features_{file_name}")
-                
-                # Skip if output file already exists (optional)
-                if os.path.exists(output_file):
-                    continue
-                
-                # Load the weather data
-                df = pd.read_csv(file_path)
-                
-                # Ensure date column exists and is in datetime format
-                if 'date' not in df.columns:
-                    # Try to extract date from filename if not in the data
-                    date_str = file_name.split('.')[0]  # Assuming filename format like "20130101.csv"
-                    try:
-                        date = pd.to_datetime(date_str, format='%Y%m%d')
-                        df['date'] = date
-                    except:
-                        print(f"Warning: Could not extract date from filename {file_name}")
-                        df['date'] = pd.to_datetime(f"{year}0101")  # Default to January 1st
-                else:
-                    df['date'] = pd.to_datetime(df['date'])
-                
-                # Check for required columns
-                required_columns = {
-                    'hot_dry_index': ['tmax', 'ppt'],
-                    'spi': ['ppt'],
-                    'vpd_extreme': ['vbdmax'],
-                    'temporal': ['date'],
-                    'spatial_clusters': ['longitude', 'latitude']
-                }
-                
-                missing_columns = []
-                for feature, columns in required_columns.items():
-                    missing = [col for col in columns if col not in df.columns]
-                    if missing:
-                        missing_columns.extend(missing)
-                
-                if missing_columns:
-                    missing_set = set(missing_columns)
-                    if len(missing_set) > 3:  # If too many missing columns, skip this file
-                        print(f"Skipping {file_name}: Too many required columns missing: {missing_set}")
-                        continue
-                    else:
-                        print(f"Warning: Some columns missing in {file_name}: {missing_set}")
-                
-                # Apply California-specific weather feature engineering
-                enhanced_df = engineer_ca_features(df, config=ca_feature_config)
-                
-                # Show what features were added
-                new_features = [col for col in enhanced_df.columns if col not in df.columns]
-                if new_features:
-                    print(f"Added California weather features to {file_name}: {new_features}")
-                
-                # Save the enhanced dataset
-                enhanced_df.to_csv(output_file, index=False)
-            
-            print(f"Completed processing California weather features for year {year}")
-        
-        print("Weather feature engineering completed successfully!")
-        return 0
-        
-    except Exception as e:
-        print(f"Fatal error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return 1
+        except Exception as e:
+            logger.error(f"Failed processing location {location_df.name}: {e}")
+            return pd.DataFrame()
 
+    def _verify_partitions(self, ddf):
+        """Verify no location is split across partitions"""
+        logger.info("Verifying partition integrity...")
+        with tqdm(total=3, desc="Verifying partitions") as pbar:
+            location_counts = ddf['location_id'].value_counts().compute()
+            pbar.update(1)
+            
+            partition_stats = ddf.map_partitions(
+                lambda df: pd.Series({
+                    'n_locations': df['location_id'].nunique(),
+                    'min_date': df['date'].min(),
+                    'max_date': df['date'].max()
+                })
+            ).compute()
+            pbar.update(1)
+            
+            logger.info(f"Partition stats:\n{partition_stats}")
+            if any(partition_stats['n_locations'] < len(location_counts)):
+                logger.warning("Some locations are split across partitions!")
+            else:
+                logger.info("All locations have complete data in their partitions")
+            pbar.update(1)
+
+    def run(self):
+        """Execute the full processing pipeline"""
+        try:
+            logger.info("Starting wildfire feature pipeline")
+            
+            # 1. Read input data
+            logger.info(f"Reading input from {self.input_path}")
+            with tqdm(total=1, desc="Reading input data") as pbar:
+                ddf = dd.read_parquet(
+                    self.input_path,
+                    engine='pyarrow',
+                    filters=[('date', '>=', '1980-01-01')]  # Optional filtering
+                )
+                pbar.update(1)
+            
+            # 2. Add location IDs
+            ddf = self._add_location_ids(ddf)
+            
+            # 3. Ensure complete location data per partition
+            logger.info("Shuffling data by location_id")
+            with tqdm(total=1, desc="Shuffling data") as pbar:
+                ddf = ddf.shuffle(
+                    'location_id',
+                    shuffle=self.config['dask_config']['shuffle_method'],
+                    npartitions='auto'
+                )
+                pbar.update(1)
+            
+            # 4. Verification (optional)
+            self._verify_partitions(ddf)
+            
+            # 5. Process each location
+            logger.info("Processing individual locations")
+            with tqdm(total=1, desc="Processing locations") as pbar:
+                result = ddf.groupby('location_id').apply(
+                    self._process_single_location,
+                    meta=ddf._meta
+                )
+                # Track progress of computation
+                progress(result)
+                pbar.update(1)
+            
+            # 6. Write output
+            logger.info(f"Writing results to {self.output_dir}")
+            with tqdm(total=1, desc="Writing output") as pbar:
+                result.to_parquet(
+                    self.output_dir,
+                    engine='pyarrow',
+                    compression='snappy',
+                    write_index=False,
+                    partition_on=['location_id'],
+                    schema={
+                        'latitude': pa.float32(),
+                        'longitude': pa.float32(),
+                        'date': pa.date32(),
+                        'tmax': pa.float32(),
+                        # Add other columns as needed
+                    }
+                )
+                pbar.update(1)
+            
+            logger.info("Pipeline completed successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Pipeline failed: {e}")
+            raise
+        finally:
+            self.client.close()
+            self.cluster.close()
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Example configuration for 100M records
+    config = {
+        'input_path': '/data/interim/weather_master1.parquet',
+        'output_dir': '/data/interim/weather_features.parquet',
+        'dask_config': {
+            'n_workers': 12,              # Adjust based on your cores
+            'threads_per_worker': 1,      # Better for memory-bound tasks
+            'memory_limit': '24GB',       # For large locations
+            'shuffle_method': 'disk'      # Essential for big data
+        },
+        'feature_config': {
+            'include_temporal': True,     # Example features
+            'include_vpd': True
+        }
+    }
+    
+    pipeline = WildfireFeaturePipeline(config)
+    pipeline.run()
