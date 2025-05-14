@@ -34,21 +34,21 @@ stages:
           cache: true
           persist: true
 
-  # feature_engineering_weather:
-  #   cmd: python pipelines/feature_engineering_weather.py
-  #   deps:
-  #     - data/interim/weather_master.parquet
-  #     - pipelines/feature_engineering_weather.py
-  #   outs:
-  #     - data/interim/weather_features.parquet:
-  #         cache: true
-  #         persist: true
+  feature_engineering_weather:
+    cmd: python pipelines/apply_weather_features.py
+    deps:
+      - data/interim/weather_master.parquet
+      - pipelines/apply_weather_features.py
+    outs:
+      - data/interim/weather_features.parquet:
+          cache: true
+          persist: true
 
   merge_weather_fire:
     cmd: python pipelines/apply_merge_weather_fire.py
     deps:
       - data/processed/california_wildfires.csv
-      - data/interim/weather_master.parquet
+      - data/interim/weather_features.parquet
       - pipelines/apply_merge_weather_fire.py
     outs:
       - data/processed/merged/merged_fire_weather.csv:

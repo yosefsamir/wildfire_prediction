@@ -5,6 +5,7 @@ import pyarrow.parquet as pq
 import logging
 from pathlib import Path
 import pyarrow.compute as pc
+from calendar import monthrange
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 BASE_DIR = Path(__file__).resolve().parents[3]
 DATA_DIR = BASE_DIR / "data"
-WEATHER_PATH = DATA_DIR / "interim" / "weather_master.parquet"
+WEATHER_PATH = DATA_DIR / "interim" / "weather_features.parquet"
 FIRE_PATH = DATA_DIR / "processed" / "california_wildfires.csv"
 OUTPUT_PATH = DATA_DIR / "processed" / "merged" / "merged_fire_weather.csv"
 OUTPUT_PATH.parent.mkdir(exist_ok=True, parents=True)
@@ -40,33 +41,37 @@ def load_and_prepare_fire_data():
     return fire_df, fire_coords
 
 
-def process_year(year, fire_df):
-    """Process a single year of data without monthly chunking using KNN for spatial matching"""
-    logger.info(f"=== Processing year {year} ===")
+def process_month(year, month, fire_df):
+    """Process a single month of data using KNN for spatial matching"""
+    logger.info(f"=== Processing year {year}, month {month} ===")
     
-    year_fire = fire_df[fire_df['acq_date'].dt.year == year].copy()
+    # Filter fire data for the specific month
+    month_fire = fire_df[
+        (fire_df['acq_date'].dt.year == year) & 
+        (fire_df['acq_date'].dt.month == month)
+    ].copy()
 
-    logger.info(f"Year {year} fire data shape: {year_fire.shape}")
-    print(f"Year {year} fire data shape: {year_fire.shape}")
-    if year_fire.empty:
-        logger.warning(f"No fire data found for year {year}")
+    logger.info(f"Year {year}, Month {month} fire data shape: {month_fire.shape}")
+    if month_fire.empty:
+        logger.warning(f"No fire data found for year {year}, month {month}")
         return pd.DataFrame()
 
-    # Get spatial bounds for this year's fires
-    min_lat = year_fire['latitude'].min() - BUFFER_DEGREES
-    max_lat = year_fire['latitude'].max() + BUFFER_DEGREES
-    min_lon = year_fire['longitude'].min() - BUFFER_DEGREES
-    max_lon = year_fire['longitude'].max() + BUFFER_DEGREES
+    # Get spatial bounds for this month's fires
+    min_lat = month_fire['latitude'].min() - BUFFER_DEGREES
+    max_lat = month_fire['latitude'].max() + BUFFER_DEGREES
+    min_lon = month_fire['longitude'].min() - BUFFER_DEGREES
+    max_lon = month_fire['longitude'].max() + BUFFER_DEGREES
     
-    logger.info(f"Spatial bounds for {year}: Lat [{min_lat:.4f}, {max_lat:.4f}], Lon [{min_lon:.4f}, {max_lon:.4f}]")
+    logger.info(f"Spatial bounds for {year}-{month:02d}: Lat [{min_lat:.4f}, {max_lat:.4f}], Lon [{min_lon:.4f}, {max_lon:.4f}]")
 
     try:
-        logger.info(f"Loading weather data for year {year}...")
-        # Load entire year's weather data with spatial filtering
+        logger.info(f"Loading weather data for year {year}, month {month}...")
+        # Load month's weather data with spatial filtering
         weather_data = pq.read_table(
             str(WEATHER_PATH),
             filters=[
                 ('year', '=', year),
+                ('month', '=', month),
                 ('latitude', '>=', min_lat),
                 ('latitude', '<=', max_lat),
                 ('longitude', '>=', min_lon),
@@ -74,14 +79,14 @@ def process_year(year, fire_df):
             ]
         ).to_pandas()
 
-        logger.info(f"Loaded weather data for {year}: {len(weather_data)} records")
+        logger.info(f"Loaded weather data for {year}-{month:02d}: {len(weather_data)} records")
 
         if weather_data.empty:
-            logger.warning(f"No weather data found for year {year}")
+            logger.warning(f"No weather data found for year {year}, month {month}")
             return pd.DataFrame()
         
         # Log weather data statistics
-        logger.info(f"Weather data summary for {year}:")
+        logger.info(f"Weather data summary for {year}-{month:02d}:")
         logger.info(f"  Temperature (max): min={weather_data['tmax'].min():.2f}, max={weather_data['tmax'].max():.2f}, mean={weather_data['tmax'].mean():.2f}")
         logger.info(f"  Precipitation: min={weather_data['ppt'].min():.2f}, max={weather_data['ppt'].max():.2f}, mean={weather_data['ppt'].mean():.2f}")
         logger.info(f"  VBD (max): min={weather_data['vbdmax'].min():.2f}, max={weather_data['vbdmax'].max():.2f}, mean={weather_data['vbdmax'].mean():.2f}")
@@ -98,11 +103,10 @@ def process_year(year, fire_df):
         merged_data = []
         
         # Process all fire data at once
-        logger.info(f"Processing {len(year_fire)} fire records using K-nearest neighbors...")
-        
+        logger.info(f"Processing {len(month_fire)} fire records using K-nearest neighbors...")
         
         # Create a lookup for weather data by date
-        fire_dates = year_fire['acq_date'].dt.normalize().unique()
+        fire_dates = month_fire['acq_date'].dt.normalize().unique()
         logger.info(f"Fire data spans {len(fire_dates)} unique dates")
         
         # Process each fire record
@@ -111,7 +115,7 @@ def process_year(year, fire_df):
         no_matches = 0
         
         # Use enumerate to correctly track the index
-        for idx, fire_record in enumerate(year_fire.iterrows()):
+        for idx, fire_record in enumerate(month_fire.iterrows()):
             # Get the actual record data (fire_record is a tuple of (index, Series))
             _, fire_record_data = fire_record
             
@@ -161,8 +165,8 @@ def process_year(year, fire_df):
                     no_matches += 1
             
             # Log progress every 10,000 records
-            if (idx + 1) % 10000 == 0 or idx == len(year_fire) - 1:
-                logger.info(f"Processed {idx + 1}/{len(year_fire)} fire records")
+            if (idx + 1) % 10000 == 0 or idx == len(month_fire) - 1:
+                logger.info(f"Processed {idx + 1}/{len(month_fire)} fire records")
         
         logger.info(f"Matching summary: Same day: {matches_same_day}, Different day: {matches_different_day}, No match: {no_matches}")
         
@@ -171,7 +175,7 @@ def process_year(year, fire_df):
             merged = pd.DataFrame(merged_data)
             
             # Log statistics about the matches
-            logger.info(f"Total matched records: {len(merged)} of {len(year_fire)} ({len(merged)/len(year_fire)*100:.2f}%)")
+            logger.info(f"Total matched records: {len(merged)} of {len(month_fire)} ({len(merged)/len(month_fire)*100:.2f}%)")
             
             # Log spatial distance statistics
             logger.info(f"Distance statistics (km):")
@@ -185,7 +189,7 @@ def process_year(year, fire_df):
             
             # Log final merge statistics
             missing_weather = merged['tmax'].isna().sum()
-            logger.info(f"Final merge stats for {year}:")
+            logger.info(f"Final merge stats for {year}-{month:02d}:")
             logger.info(f"  Total records: {len(merged)}")
             logger.info(f"  Records with complete weather data: {len(merged) - missing_weather} ({(len(merged) - missing_weather)/len(merged)*100:.2f}%)")
             logger.info(f"  Records with missing weather data: {missing_weather} ({missing_weather/len(merged)*100:.2f}%)")
@@ -193,19 +197,49 @@ def process_year(year, fire_df):
             # Sample data preview
             if not merged.empty:
                 sample = merged.head(1)
-                logger.info(f"Sample record preview for {year}: Fire location: ({sample['latitude'].iloc[0]:.4f}, {sample['longitude'].iloc[0]:.4f}), "
+                logger.info(f"Sample record preview for {year}-{month:02d}: Fire location: ({sample['latitude'].iloc[0]:.4f}, {sample['longitude'].iloc[0]:.4f}), "
                             f"Date: {sample['acq_date'].iloc[0]}, Temp: {sample['tmax'].iloc[0]:.2f}, "
                             f"Precip: {sample['ppt'].iloc[0]:.2f}, VBD: {sample['vbdmax'].iloc[0]:.2f}, "
                             f"Distance: {sample['distance_km'].iloc[0]:.2f} km")
             
-            logger.info(f"=== Year {year} processing complete ===")
+            logger.info(f"=== Year {year}, Month {month} processing complete ===")
             return merged
         else:
-            logger.warning(f"No matches found for any records in year {year}")
+            logger.warning(f"No matches found for any records in year {year}, month {month}")
             return pd.DataFrame()
 
     except Exception as e:
-        logger.error(f"Error processing year {year}: {str(e)}", exc_info=True)
+        logger.error(f"Error processing year {year}, month {month}: {str(e)}", exc_info=True)
+        return pd.DataFrame()
+
+def process_year(year, fire_df):
+    """Process a single year of data by iterating through months"""
+    logger.info(f"=== Processing year {year} by months ===")
+    
+    year_fire = fire_df[fire_df['acq_date'].dt.year == year].copy()
+    
+    logger.info(f"Year {year} fire data shape: {year_fire.shape}")
+    print(f"Year {year} fire data shape: {year_fire.shape}")
+    if year_fire.empty:
+        logger.warning(f"No fire data found for year {year}")
+        return pd.DataFrame()
+    
+    # Process each month separately
+    month_results = []
+    months_in_year = year_fire['acq_date'].dt.month.unique()
+    
+    for month in sorted(months_in_year):
+        month_result = process_month(year, month, fire_df)
+        if not month_result.empty:
+            month_results.append(month_result)
+    
+    # Combine monthly results
+    if month_results:
+        combined_result = pd.concat(month_results)
+        logger.info(f"Combined results for year {year}: {len(combined_result)} records from {len(month_results)} months")
+        return combined_result
+    else:
+        logger.warning(f"No results found for any month in year {year}")
         return pd.DataFrame()
 
 def find_nearest_temporal_match(fire_record, weather_data, tolerance):
