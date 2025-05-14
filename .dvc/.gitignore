@@ -2,4 +2,5 @@
 /tmp
 /cache
 **/.dvc/config
+/config
 /config.local
