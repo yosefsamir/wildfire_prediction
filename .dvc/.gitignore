@@ -3,4 +3,6 @@
 /cache
 **/.dvc/config
 /config
+=======
 /config.local
+>>>>>>> c5c68fadf4dca8b9676512a5d2b13b5e894cac9c

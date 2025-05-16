@@ -27,6 +27,7 @@ from .weather_processing import (
 from .merge_weather_fire import (
     load_and_prepare_fire_data,
     process_year,
+    process_month,
     WEATHER_PATH,
     FIRE_PATH,
     OUTPUT_PATH,
