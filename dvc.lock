@@ -52,20 +52,36 @@ stages:
   merge_weather_fire:
     cmd: python pipelines/apply_merge_weather_fire.py
     deps:
-    - path: data/interim/weather_master.parquet
+    - path: data/interim/weather_features.parquet
       hash: md5
-      md5: 31587c160b82d0c97996a2398c4e4d16
-      size: 1078174972
+      md5: c63d479bc0f937f11ec76577c90f0567
+      size: 6653243453
     - path: data/processed/california_wildfires.csv
       hash: md5
       md5: 7ac12543449763e6b802edd0b8a5d12b
       size: 199228450
     - path: pipelines/apply_merge_weather_fire.py
       hash: md5
-      md5: 718b7ac9294512c5edeff2f6f2caa431
-      size: 3260
+      md5: c56586cbf5de73cc6831e5dc6191bc7c
+      size: 4525
     outs:
     - path: data/processed/merged/merged_fire_weather.csv
       hash: md5
-      md5: 85cf74de73deef33a392111ad6d39b54
-      size: 330364011
+      md5: 2902366b09224fdf612dc26afd3bfee1
+      size: 866282110
+  feature_engineering_weather:
+    cmd: python pipelines/apply_weather_features.py
+    deps:
+    - path: data/interim/weather_master.parquet
+      hash: md5
+      md5: 31587c160b82d0c97996a2398c4e4d16
+      size: 1078174972
+    - path: pipelines/apply_weather_features.py
+      hash: md5
+      md5: f1382d6969f865e0d11cc161f4893b5f
+      size: 12405
+    outs:
+    - path: data/interim/weather_features.parquet
+      hash: md5
+      md5: c63d479bc0f937f11ec76577c90f0567
+      size: 6653243453

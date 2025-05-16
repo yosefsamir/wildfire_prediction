@@ -60,65 +60,56 @@ def calculate_hot_dry_index(df, tmax_col='tmax', ppt_col='ppt', threshold_temp=2
     
     return result_df
 
-def calculate_spi_ca_daily(df, ppt_col='ppt', lookback_days=30,  min_periods=10, lat_lon_bins=0.5):
+def calculate_spi_ca_daily(df, ppt_col='ppt', lookback_days=7, min_periods=3, lat_lon_bins=1.0):
     """
-    Calculate Standardized Precipitation Index (SPI) for California weather data.
-    SPI is useful for drought monitoring, which affects wildfire risk.
+    Calculate Standardized Precipitation Index (SPI) for California weather data using a 7-day rolling window.
+    SPI is useful for short-term drought monitoring, affecting wildfire risk.
     
     Args:
         df: DataFrame with precipitation data
         ppt_col: Column name for precipitation
-        lookback_days: Number of days to look back for SPI calculation
+        lookback_days: Number of days for rolling window (default: 7)
         min_periods: Minimum number of periods required for calculation
-        lat_lon_bins: Size of latitude/longitude bins for spatial grouping when grid_id is unavailable
+        lat_lon_bins: Size of latitude/longitude bins (for context, not used in calculation)
         
     Returns:
-        DataFrame with added SPI columns
+        DataFrame with added SPI column
     """
     if ppt_col not in df.columns or 'date' not in df.columns:
         logger.warning(f"Required columns missing. Cannot calculate SPI")
-        df['spi_short'] = 0.0
+        df['spi_7day'] = 0.0
         return df
     
     # Copy the dataframe to avoid modifying the original
     result_df = df.copy()
     
-    # Ensure date is datetime type
+    # Ensure date is datetime type and sort by date
     if not pd.api.types.is_datetime64_any_dtype(result_df['date']):
         result_df['date'] = pd.to_datetime(result_df['date'])
+    result_df = result_df.sort_values('date')
     
-    # Initialize SPI columns
-    result_df['spi_short'] = np.nan
-    result_df['spi_medium'] = np.nan
+    # Initialize SPI column
+    result_df['spi_7day'] = 0.0
     
-        
-    # Calculate rolling precipitation for different windows across the whole dataset
-    rolling_30d = result_df[ppt_col].rolling(window=lookback_days, min_periods=min_periods).sum()
-    rolling_90d = result_df[ppt_col].rolling(window=lookback_days*3, min_periods=min_periods*2).sum()
+    # Calculate rolling precipitation for 7-day window
+    rolling_7d = result_df[ppt_col].rolling(window=lookback_days, min_periods=min_periods).sum()
     
-    # Calculate SPI
-    if rolling_30d.std() > 0:
-        result_df['spi_short'] = (rolling_30d - rolling_30d.mean()) / rolling_30d.std()
-    else:
-        result_df['spi_short'] = 0.0
-        
-    if rolling_90d.std() > 0:
-        result_df['spi_medium'] = (rolling_90d - rolling_90d.mean()) / rolling_90d.std()
-    else:
-        result_df['spi_medium'] = 0.0
-        
-    # Skip to drought categorization
-    result_df['spi_short'] = result_df['spi_short'].fillna(0)
-    result_df['spi_medium'] = result_df['spi_medium'].fillna(0)
+    # Calculate SPI: (rolling_sum - mean) / std
+    if rolling_7d.std() > 0:
+        result_df['spi_7day'] = (rolling_7d - rolling_7d.mean()) / rolling_7d.std()
     
+    # Fill NaN values (e.g., early rows with insufficient data)
+    result_df['spi_7day'] = result_df['spi_7day'].fillna(0)
+    
+    # Categorize into drought levels
     result_df['drought_category'] = pd.cut(
-        result_df['spi_short'], 
+        result_df['spi_7day'],
         bins=[-float('inf'), -2, -1.5, -1, -0.5, 0.5, float('inf')],
         labels=[5, 4, 3, 2, 1, 0]  # Higher values indicate more severe drought
     ).astype('int')
     
-    return result_df
-    
+    return result_df    
+
 def calculate_vpd_extreme_ca(df, vpd_col='vbdmax', percentile_threshold=90):
     """
     Calculate extreme vapor pressure deficit (VPD) indicators for California.
@@ -298,6 +289,46 @@ def calculate_compound_indices(df):
     
     return result_df
 
+def calculate_rolling_means(df, tmax_col='tmax', ppt_col='ppt', vpd_col='vbdmax', window=7, min_periods=3):
+    """
+    Calculate rolling means for key weather variables to capture short-term trends.
+    
+    Args:
+        df: DataFrame with weather data
+        tmax_col: Column name for maximum temperature
+        ppt_col: Column name for precipitation
+        vpd_col: Column name for vapor pressure deficit
+        window: Window size for rolling mean (days)
+        min_periods: Minimum number of observations required in window
+        
+    Returns:
+        DataFrame with added rolling mean columns
+    """
+    # Copy the dataframe to avoid modifying the original
+    result_df = df.copy()
+    
+    # Check which features are available
+    columns_to_check = {tmax_col: 'tmax_7day_mean', 
+                        ppt_col: 'ppt_7day_mean', 
+                        vpd_col: 'vbd_7day_mean'}
+    
+    # Ensure date is sorted for proper rolling calculations
+    if 'date' in result_df.columns:
+        if not pd.api.types.is_datetime64_any_dtype(result_df['date']):
+            result_df['date'] = pd.to_datetime(result_df['date'])
+        result_df = result_df.sort_values('date')
+    
+    # Calculate rolling means for each available column
+    for col, new_col_name in columns_to_check.items():
+        if col in result_df.columns:
+            result_df[new_col_name] = result_df[col].rolling(window=window, min_periods=min_periods).mean()
+            logger.info(f"Calculated {window}-day rolling mean for {col}")
+        else:
+            logger.warning(f"Column {col} not found, skipping rolling mean calculation")
+            result_df[new_col_name] = np.nan
+    
+    return result_df
+
 def engineer_ca_features(df, config=None):
     """
     Apply California-specific weather feature engineering.
@@ -319,6 +350,7 @@ def engineer_ca_features(df, config=None):
     include_vpd = config.get('include_vpd', True)
     include_temporal = config.get('include_temporal', True)
     include_compound = config.get('include_compound', True)
+    include_rolling_means = config.get('include_rolling_means', True)  # New parameter
         
     # SPI calculation parameters
     lat_lon_bins = config.get('lat_lon_bins', 0.5)
@@ -370,7 +402,12 @@ def engineer_ca_features(df, config=None):
             logger.info("Adding temporal features")
             result_df = add_ca_temporal_features(result_df)
         
-        # 5. Compound indices
+        # 5. Rolling mean features (7-day)
+        if include_rolling_means and 'date' in result_df.columns:
+            logger.info("Calculating 7-day rolling means")
+            result_df = calculate_rolling_means(result_df)
+        
+        # 6. Compound indices
         if include_compound:
             logger.info("Calculating compound risk indices")
             result_df = calculate_compound_indices(result_df)
