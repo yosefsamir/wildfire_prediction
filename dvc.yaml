@@ -1,6 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/iterative/dvcyaml-schema/master/schema.json
 stages:
-
   clean_fire_data:
     cmd: python pipelines/clean_fire_data.py
     deps:
@@ -23,7 +22,7 @@ stages:
           persist: true
 
   clean_weather_data:
-    cmd: python pipelines/clean_weather_data.py --all-years 
+    cmd: python pipelines/clean_weather_data.py --all-years
     deps:
       - pipelines/clean_weather_data.py
     outs:
@@ -55,18 +54,16 @@ stages:
           cache: true
           persist: true
 
-
-
   train_xgboost_model:
-    cmd: python pipelines/train_xgboost_model.py --config configs/params_xgboost.yml
+    cmd: python pipelines/train_and_evaluate_xgboost_model.py
     deps:
-      - data/processed/california_wildfires.csv
-      - configs/params_xgboost.yml
+      - data/processed/merged/merged_fire_weather.csv
+      - configs/params.yml
       - pipelines/train_xgboost_model.py
       - src/wildfire_prediction/models/xgboost_model.py
     outs:
       - artifacts/models/wildfire_xgboost_model.pkl:
-          cache : true
+          cache: true
           persist: true
     metrics:
       - artifacts/metrics/xgboost_model_metrics.json:
@@ -76,3 +73,17 @@ stages:
           cache: false
       - artifacts/figures/confusion_matrix.png:
           cache: false
+
+
+  predict_wildfires:
+    cmd: python pipelines/predict_wildfires.py --config configs/params.yml --model artifacts/models/wildfire_xgboost_model.pkl --data data/processed/merged/merged_fire_weather.csv --output artifacts/predictions/wildfire_predictions.csv
+    deps:
+      - artifacts/models/wildfire_xgboost_model.pkl
+      - data/processed/merged/merged_fire_weather.csv
+      - configs/params.yml
+      - pipelines/predict_wildfires.py
+      - src/wildfire_prediction/models/xgboost_model.py
+    outs:
+      - artifacts/predictions/wildfire_predictions.csv:
+          cache: true
+          persist: true

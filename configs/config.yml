@@ -35,6 +35,10 @@ weather:
   clean_columns:
     drop_threshold: 50.0
 
+merged_data:
+  merged_file_name: merged_fire_weather.csv
+
+  
 general:
   random_seed: 42
   log_level: INFO
