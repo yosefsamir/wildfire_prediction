@@ -57,18 +57,18 @@ def prepare_prediction_data(data_path, config):
     
     logger.info(f"Data loaded with shape: {df.shape}")
     
-    # Apply feature engineering if needed
-    if 'grid_id' not in df.columns and all(col in df.columns for col in ['latitude', 'longitude']):
-        logger.info("Creating grid and time features...")
-        grid_size_km = config['feature_engineering']['grid_size_km']
-        df = create_grid_and_time_features(df, grid_size_km=grid_size_km)
+    # # Apply feature engineering if needed
+    # if 'grid_id' not in df.columns and all(col in df.columns for col in ['latitude', 'longitude']):
+    #     logger.info("Creating grid and time features...")
+    #     grid_size_km = config['feature_engineering']['grid_size_km']
+    #     df = create_grid_and_time_features(df, grid_size_km=grid_size_km)
     
-    # Apply transformations to numerical features
-    if 'frp_log' not in df.columns and 'frp' in df.columns:
-        logger.info("Transforming numerical features...")
-        log_transform_frp = config['feature_engineering']['log_transform_frp']
-        normalize_brightness = config['feature_engineering']['normalize_brightness']
-        df = transform_numerical_features(df, log_transform_frp=log_transform_frp, normalize_brightness=normalize_brightness)
+    # # Apply transformations to numerical features
+    # if 'frp_log' not in df.columns and 'frp' in df.columns:
+    #     logger.info("Transforming numerical features...")
+    #     log_transform_frp = config['feature_engineering']['log_transform_frp']
+    #     normalize_brightness = config['feature_engineering']['normalize_brightness']
+    #     df = transform_numerical_features(df, log_transform_frp=log_transform_frp, normalize_brightness=normalize_brightness)
     
     # Get feature columns from config
     feature_columns = config['feature_engineering'].get('feature_columns', [])
@@ -99,14 +99,14 @@ def prepare_prediction_data(data_path, config):
 def main():
     """Main function to make predictions using the trained XGBoost model."""
     parser = argparse.ArgumentParser(description='Make predictions with XGBoost wildfire model')
-    parser.add_argument('--config', type=str, default='configs/params_xgboost.yml',
+    parser.add_argument('--config', type=str, default='configs/params.yml',
                         help='Path to configuration file')
     parser.add_argument('--model', type=str, 
-                        default='artifacts/models/wildfire_xgboost_model.pkl',
+                        default='artifacts/models/xgb_wildfire_model.pkl',
                         help='Path to trained model')
     parser.add_argument('--data', type=str, required=True,
                         help='Path to data for prediction')
-    parser.add_argument('--output', type=str, required=True,
+    parser.add_argument('--output',defualt= 'artifacts/predictions', type=str, required=True,
                         help='Path to save prediction results')
     args = parser.parse_args()
     
