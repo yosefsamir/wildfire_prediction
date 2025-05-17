@@ -39,11 +39,19 @@ python pipelines/predict_wildfires.py --model artifacts/models/wildfire_xgboost_
 
 ### Evaluation
 
-To evaluate a trained model on test data:
+To evaluate a trained model with comprehensive overfitting analysis:
 
 ```bash
-python pipelines/evaluate_model.py --model artifacts/models/wildfire_xgboost_model.pkl --data test_data.csv --output-dir artifacts/evaluation
+python pipelines/evaluate_model.py \
+    --model artifacts/models/wildfire_xgboost_model.pkl \
+    --train-data data/processed/train_data.csv \
+    --test-data data/processed/test_data.csv \
+    --val-data data/processed/val_data.csv \
+    --output-dir artifacts/evaluation \
+    --model-name xgboost
 ```
+
+The validation data is optional but recommended for better overfitting analysis.
 
 ## Model Features
 

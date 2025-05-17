@@ -567,7 +567,13 @@ def sample_dataset(full_df: pd.DataFrame, total_rows: int, random_state: int = 4
     
     # Sample negatives
     if n_neg < len(neg):
-        neg_sampled = neg.sample(n=n_neg, random_state=random_state)
+        # Use more efficient sampling for very large datasets
+        if len(neg) > 1000000:  # If more than 1 million rows
+            # Calculate fraction instead of absolute number to reduce memory usage
+            fraction = n_neg / len(neg)
+            neg_sampled = neg.sample(frac=fraction, random_state=random_state)
+        else:
+            neg_sampled = neg.sample(n=n_neg, random_state=random_state)
         # Verify sampled negatives still have fire=0
         assert (neg_sampled['fire'] == 0).all(), "Error: Not all sampled negative samples have fire=0"
     else:

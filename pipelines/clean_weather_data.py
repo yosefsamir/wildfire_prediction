@@ -59,7 +59,7 @@ def main():
         # Setup logging based on config
         log_level = getattr(logging, config.get('general', {}).get('log_level', 'INFO'))
         logging.basicConfig(level=log_level, 
-                          format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         logger = logging.getLogger(__name__)
         
         # Get project paths

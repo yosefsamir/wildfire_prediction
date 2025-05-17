@@ -1,0 +1,33 @@
+{
+    "model": {
+        "params": {
+            "n_estimators": 500,
+            "max_depth": 5,
+            "learning_rate": 0.01,
+            "subsample": 0.7,
+            "colsample_bytree": 0.7,
+            "min_child_weight": 10,
+            "gamma": 1.0,
+            "reg_alpha": 1.0,
+            "reg_lambda": 2.0,
+            "scale_pos_weight": "auto",
+            "eval_metric": [
+                "auc",
+                "logloss",
+                "error"
+            ]
+        }
+    },
+    "train": {
+        "cv_folds": 5,
+        "early_stopping_rounds": 20
+    },
+    "feature_engineering": {
+        "recommendations": [
+            "Add more temporal features (day of year, month, season)",
+            "Add interaction features between weather variables",
+            "Add spatial features (distance to water, elevation)",
+            "Add historical fire frequency in the area"
+        ]
+    }
+}

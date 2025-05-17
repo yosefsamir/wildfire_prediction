@@ -11,8 +11,8 @@ stages:
       size: 490580970
     - path: pipelines/clean_fire_data.py
       hash: md5
-      md5: 92ae172a9b206f33a0ea69cf9c4e3982
-      size: 5452
+      md5: 2540033982ebf49dd167e05e6802572c
+      size: 5586
     outs:
     - path: data/interim/fire_clean.csv
       md5: 9ed4fdad8330e39662396f999ea1a6cd
@@ -25,13 +25,13 @@ stages:
       size: 116624831
     - path: pipelines/preprocess_fire_data.py
       hash: md5
-      md5: cd419e70ac7bbdb4f676040b7f7ea58c
-      size: 11330
+      md5: d6d97a3c4975d8ceb70695a4b7ed37ee
+      size: 11588
     outs:
     - path: data/processed/california_wildfires.csv
       hash: md5
-      md5: 7ac12543449763e6b802edd0b8a5d12b
-      size: 199228450
+      md5: 0c064781c75e71ec93b042d02960eca4
+      size: 199230032
   clean_weather_data:
     cmd: python pipelines/clean_weather_data.py --all-years
     deps:
