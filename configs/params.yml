@@ -1,37 +1,87 @@
-# Model hyperparameters
+# ─────────────────────────────────────────────────────────────────────────────
+# XGBoost wildfire‐risk model configuration
+# Predicts probability of fire in each 1 km grid cell
+# ─────────────────────────────────────────────────────────────────────────────
 
 train:
   test_size: 0.2
   random_state: 42
+  val_size: 0.25
   cv_folds: 5
-  sample_data: true # For development/testing
-  sample_size: 100000 # Number of samples to use
+  early_stopping_rounds: 20
+  sample_data: false
+  sample_size: null
 
 model:
   type: xgboost
   params:
-    n_estimators: 200
-    max_depth: 8
-    learning_rate: 0.1
-    subsample: 0.8
-    colsample_bytree: 0.8
-    min_child_weight: 3
-    gamma: 0.1
-    scale_pos_weight: 10 # Helps with class imbalance
+    # core boosting parameters
+    n_estimators: 500
+    max_depth: 5                   # shallower trees to reduce overfitting
+    learning_rate: 0.01
+    subsample: 0.7
+    colsample_bytree: 0.7
+    colsample_bylevel: 0.7
+    min_child_weight: 10
+    gamma: 1.0
+    reg_alpha: 1.0
+    reg_lambda: 2.0
+
+    # incremental regularization
+    max_delta_step: 1              # makes updates more conservative
+    max_bin: 256                   # finer binning stabilizes sparse splits
+
+    # handle class imbalance (auto‐computed when null)
+    scale_pos_weight: null
+
+    # objective & metrics
     objective: binary:logistic
-    eval_metric: auc
+    eval_metric:
+      - auc
+      - logloss
+      - error
+
+    # speed & reproducibility
+    tree_method: hist
+    grow_policy: lossguide
     random_state: 42
+    use_label_encoder: false
+    verbosity: 1
 
 feature_engineering:
   grid_size_km: 1
   drop_low_confidence: true
   log_transform_frp: true
   normalize_brightness: true
+
   feature_columns:
-    - frp_log
-    - brightness_normalized
-    - vpdmax # Maximum vapor pressure deficit
-    - tmax # Maximum temperature
-    - ppt # Precipitation
-    - grid_id # Spatial information
-    - week # Temporal information
+    - vbdmax
+    - tmax
+    - ppt
+    - hot_dry_index
+    - high_temp_day
+    - low_rain_day
+    - hot_dry_day
+    - drought_category
+    - vpd_extreme
+    - vpd_anomaly
+    - vpd_risk_category
+    - is_fire_season
+    - is_santa_ana_season
+    - season
+    - week_sin
+    - week_cos
+    - month_sin
+    - month_cos
+    - tmax_7day_mean
+    - ppt_7day_mean
+    - vbd_7day_mean
+    - fire_weather_index
+    - drought_weather_index
+    - fire_risk_index
+
+monitoring:
+  save_model_path: ./models/xgb_wildfire.pkl
+  save_plots: true
+  feature_importance_top_n: 20
+  confusion_matrix: true
