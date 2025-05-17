@@ -83,5 +83,5 @@ stages:
     outs:
     - path: data/interim/weather_features.parquet
       hash: md5
-      md5: c63d479bc0f937f11ec76577c90f0567
-      size: 6653243453
+      md5: 6aaa68f2f1d52caffd953a4fc9ace7cb
+      size: 8602277901

@@ -7,7 +7,6 @@ import os
 import sys
 import concurrent.futures
 from functools import partial
-import calendar
 
 src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
 sys.path.append(src_dir)
