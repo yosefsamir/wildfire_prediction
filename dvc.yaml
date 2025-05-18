@@ -23,6 +23,10 @@ stages:
 
   clean_weather_data:
     cmd: python pipelines/clean_weather_data.py --all-years
+<<<<<<< HEAD
+    cmd: python pipelines/clean_weather_data.py --all-years
+=======
+>>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
     deps:
       - pipelines/clean_weather_data.py
     outs:
@@ -33,21 +37,37 @@ stages:
           cache: true
           persist: true
 
-  # feature_engineering_weather:
-  #   cmd: python pipelines/feature_engineering_weather.py
-  #   deps:
-  #     - data/interim/weather_master.parquet
-  #     - pipelines/feature_engineering_weather.py
-  #   outs:
-  #     - data/interim/weather_features.parquet:
-  #         cache: true
-  #         persist: true
+  feature_engineering_weather:
+    cmd: python pipelines/apply_weather_features.py
+    deps:
+      - data/interim/weather_master.parquet
+      - pipelines/apply_weather_features.py
+    outs:
+      - data/interim/weather_features.parquet:
+          cache: true
+          persist: true
+<<<<<<< HEAD
+  feature_engineering_weather:
+    cmd: python pipelines/apply_weather_features.py
+    deps:
+      - data/interim/weather_master.parquet
+      - pipelines/apply_weather_features.py
+    outs:
+      - data/interim/weather_features.parquet:
+          cache: true
+          persist: true
+=======
+>>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
 
   merge_weather_fire:
     cmd: python pipelines/apply_merge_weather_fire.py
     deps:
       - data/processed/california_wildfires.csv
-      - data/interim/weather_master.parquet
+      - data/interim/weather_features.parquet
+<<<<<<< HEAD
+      - data/interim/weather_features.parquet
+=======
+>>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
       - pipelines/apply_merge_weather_fire.py
     outs:
       - data/processed/merged/merged_fire_weather.csv:
@@ -56,14 +76,27 @@ stages:
 
   train_xgboost_model:
     cmd: python pipelines/train_and_evaluate_xgboost_model.py
+<<<<<<< HEAD
+    cmd: python pipelines/train_and_evaluate_xgboost_model.py
     deps:
       - data/processed/merged/merged_fire_weather.csv
       - configs/params.yml
+      - data/processed/merged/merged_fire_weather.csv
+      - configs/params.yml
+=======
+    deps:
+      - data/processed/merged/merged_fire_weather.csv
+      - configs/params.yml
+>>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
       - pipelines/train_xgboost_model.py
       - src/wildfire_prediction/models/xgboost_model.py
     outs:
       - artifacts/models/wildfire_xgboost_model.pkl:
           cache: true
+<<<<<<< HEAD
+          cache: true
+=======
+>>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
           persist: true
     metrics:
       - artifacts/metrics/xgboost_model_metrics.json:
@@ -74,6 +107,18 @@ stages:
       - artifacts/figures/confusion_matrix.png:
           cache: false
 
+<<<<<<< HEAD
+  predict_and_deploy_model:
+    cmd:  python -m streamlit run pipelines\predict_and_deploy_model.py
+    deps:
+      - data/processed/merged/merged_fire_weather.csv
+      - artifacts/models/wildfire_xgboost_model.pkl
+      - configs/params.yml
+      - pipelines/predict_and_deploy_model.py
+      - src/wildfire_prediction/models/xgboost_model.py
+
+
+=======
 
   predict_wildfires:
     cmd: python pipelines/predict_wildfires.py --config configs/params.yml --model artifacts/models/wildfire_xgboost_model.pkl --data data/processed/merged/merged_fire_weather.csv --output artifacts/predictions/wildfire_predictions.csv
@@ -87,3 +132,4 @@ stages:
       - artifacts/predictions/wildfire_predictions.csv:
           cache: true
           persist: true
+>>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
