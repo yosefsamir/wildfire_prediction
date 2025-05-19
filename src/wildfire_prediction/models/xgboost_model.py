@@ -7,52 +7,33 @@ import os
 import pickle
 import numpy as np
 import pandas as pd
+
 from sklearn.model_selection import train_test_split, StratifiedKFold
-<<<<<<< HEAD
-from sklearn.model_selection import train_test_split, StratifiedKFold
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, confusion_matrix, classification_report,
     roc_curve, precision_recall_curve, average_precision_score
-<<<<<<< HEAD
-    roc_auc_score, confusion_matrix, classification_report,
-    roc_curve, precision_recall_curve, average_precision_score
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
 )
 import xgboost as xgb
 import matplotlib.pyplot as plt
 import logging
 import json
-<<<<<<< HEAD
-import json
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-<<<<<<< HEAD
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
 logger = logging.getLogger(__name__)
 
 
 def create_xgboost_model(params=None):
     """Create an XGBoost classifier with optimized parameters."""
     # Default parameters - improved based on hyperparameter recommendations
-<<<<<<< HEAD
-    """Create an XGBoost classifier with optimized parameters."""
-    # Default parameters - improved based on hyperparameter recommendations
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
     default_params = {
         'n_estimators': 500,
         'max_depth': 5,
@@ -64,7 +45,6 @@ def create_xgboost_model(params=None):
         'gamma': 1.0,
         'reg_alpha': 1.0,
         'reg_lambda': 2.0,
-<<<<<<< HEAD
         'n_estimators': 500,
         'max_depth': 5,
         'learning_rate': 0.01,
@@ -75,23 +55,19 @@ def create_xgboost_model(params=None):
         'gamma': 1.0,
         'reg_alpha': 1.0,
         'reg_lambda': 2.0,
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
         'objective': 'binary:logistic',
         'eval_metric': ['auc', 'logloss', 'error'],
         'tree_method': 'hist',  # Faster histogram-based algorithm
         'grow_policy': 'lossguide',  # Focus on nodes with higher loss
-<<<<<<< HEAD
         'eval_metric': ['auc', 'logloss', 'error'],
         'tree_method': 'hist',  # Faster histogram-based algorithm
         'grow_policy': 'lossguide',  # Focus on nodes with higher loss
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
+
         'random_state': 42,
         'use_label_encoder': False,
         'verbosity': 0,
         # `enable_categorical` only applies when passing pandas categoricals
-<<<<<<< HEAD
         'use_label_encoder': False,
         'verbosity': 0,
         # `enable_categorical` only applies when passing pandas categoricals
@@ -102,13 +78,10 @@ def create_xgboost_model(params=None):
         default_params.update(params)
 
 
-=======
-    }
+    
 
     if params:
         default_params.update(params)
-
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
     model = xgb.XGBClassifier(**default_params)
     logger.info(f"Created XGBoost model with parameters: {default_params}")
     return model
@@ -159,7 +132,6 @@ def train_xgboost_model(
         logger.info(f"Auto scale_pos_weight set to: {params['scale_pos_weight']:.3f}")
 
     # 4) Create initial model
-<<<<<<< HEAD
 def train_xgboost_model(
     X, y,
     params=None,
@@ -205,8 +177,7 @@ def train_xgboost_model(
         logger.info(f"Auto scale_pos_weight set to: {params['scale_pos_weight']:.3f}")
 
     # 4) Create initial model
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
     model = create_xgboost_model(params)
 
     # 5) Cross‑validation with memory optimization
@@ -300,8 +271,7 @@ def train_xgboost_model(
         evals=evals,
         early_stopping_rounds=early_stopping_rounds,
         verbose_eval=False
-<<<<<<< HEAD
-
+    )
     # 5) Cross‑validation with memory optimization
     skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     cv_scores = []
@@ -393,8 +363,6 @@ def train_xgboost_model(
         evals=evals,
         early_stopping_rounds=early_stopping_rounds,
         verbose_eval=False
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
     )
     
     # Free memory
@@ -406,8 +374,6 @@ def train_xgboost_model(
     setattr(model, '_best_iteration', final_bst.best_iteration)
 
     logger.info(f"Final model best_iteration: {final_bst.best_iteration}")
-<<<<<<< HEAD
-    # Free memory
     del dtrain_full
     for matrix in eval_matrices:
         del matrix
@@ -416,8 +382,6 @@ def train_xgboost_model(
     setattr(model, '_best_iteration', final_bst.best_iteration)
 
     logger.info(f"Final model best_iteration: {final_bst.best_iteration}")
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
     return model, X_train, X_test, y_train, y_test, cv_scores
 
 
@@ -520,7 +484,7 @@ def evaluate_xgboost_model(
                 classification_report(y_test, y_te_pred, zero_division=0))
 
     # 8) Visualizations + JSON
-<<<<<<< HEAD
+
 def _preprocess_X(df):
     """Helper to preprocess object columns in evaluation."""
     df2 = df.copy()
@@ -620,8 +584,7 @@ def evaluate_xgboost_model(
                 classification_report(y_test, y_te_pred, zero_division=0))
 
     # 8) Visualizations + JSON
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
@@ -643,7 +606,6 @@ def evaluate_xgboost_model(
         plt.close()
 
         # B) Precision-Recall Curves
-<<<<<<< HEAD
 
         # A) ROC Curves
         plt.figure(figsize=(8, 6))
@@ -663,8 +625,6 @@ def evaluate_xgboost_model(
         plt.close()
 
         # B) Precision-Recall Curves
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
         plt.figure(figsize=(8, 6))
         precision, recall, thresholds_pr = precision_recall_curve(y_test, y_te_p)
         plt.plot(recall, precision, label=f'Test PR (AP={metrics["average_precision"]:.4f})')
@@ -696,7 +656,6 @@ def evaluate_xgboost_model(
         # c) Confusion matrix
         cm = np.array(metrics['confusion_matrix'])
         plt.figure(figsize=(6,5))
-<<<<<<< HEAD
         precision, recall, thresholds_pr = precision_recall_curve(y_test, y_te_p)
         plt.plot(recall, precision, label=f'Test PR (AP={metrics["average_precision"]:.4f})')
         f1_scores = 2 * (precision * recall) / (precision + recall + 1e-8)
@@ -732,11 +691,9 @@ def evaluate_xgboost_model(
         thresh = cm.max()/2.
         plt.colorbar(); plt.xlabel('Pred'); plt.ylabel('True')
         thresh = cm.max()/2.
-=======
         plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
         plt.colorbar(); plt.xlabel('Pred'); plt.ylabel('True')
         thresh = cm.max()/2.
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
         for i in range(2):
             for j in range(2):
                 plt.text(j,i,cm[i,j],ha='center',
@@ -751,10 +708,8 @@ def evaluate_xgboost_model(
         #D) Feature importance
         plt.figure()
         xgb.plot_importance(model._Booster, max_num_features=20)
-<<<<<<< HEAD
-                plt.text(j,i,cm[i,j],ha='center',
+        plt.text(j,i,cm[i,j],ha='center',
                         color='white' if cm[i,j]>thresh else 'black')
-        plt.xticks([0,1],['No Fire','Fire'])
         plt.yticks([0,1],['No Fire','Fire'])
         plt.title('Confusion Matrix')
         plt.savefig(os.path.join(output_dir, f'{model_name}_confusion_matrix.png'))
@@ -764,8 +719,7 @@ def evaluate_xgboost_model(
         #D) Feature importance
         plt.figure()
         xgb.plot_importance(model._Booster, max_num_features=20)
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'{model_name}_feature_importance.png'))
         plt.close()
@@ -774,7 +728,6 @@ def evaluate_xgboost_model(
             json.dump(metrics, f, indent=4)
         logger.info(f"Saved all evaluation outputs to {output_dir}")
 
-<<<<<<< HEAD
         plt.savefig(os.path.join(output_dir, f'{model_name}_feature_importance.png'))
         plt.close()
         fp = os.path.join('artifacts/metrics', f'{model_name}_detailed_metrics.json')
@@ -782,14 +735,11 @@ def evaluate_xgboost_model(
             json.dump(metrics, f, indent=4)
         logger.info(f"Saved all evaluation outputs to {output_dir}")
 
-=======
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
     return metrics
 
 
 def save_model(model, filepath):
-    """Save the trained model to disk."""
-<<<<<<< HEAD
     """Save the trained model to disk."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     try:
@@ -807,18 +757,15 @@ def save_model(model, filepath):
         with open(filepath, 'wb') as f:
             pickle.dump(model, f)
         logger.info(f"Model saved in pickle format to {filepath}")
-=======
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'wb') as f:
         pickle.dump(model, f)
     logger.info(f"Model saved to {filepath}")
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
     return filepath
 
 
 def load_model(filepath):
     """Load a trained model from disk."""
-<<<<<<< HEAD
     if os.path.exists(filepath + ".json"):
         # Try loading XGBoost native format first
         try:
@@ -828,7 +775,6 @@ def load_model(filepath):
             return model
         except Exception as e:
             logger.warning(f"Failed to load native format: {e}, trying pickle")
-    
     # Fall back to pickle format
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Model file not found at {filepath}")
@@ -839,11 +785,12 @@ def load_model(filepath):
         return model
     except Exception as e:
         raise RuntimeError(f"Failed to load model: {e}")
-=======
+    
+    
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Model file not found at {filepath}")
     with open(filepath, 'rb') as f:
         model = pickle.load(f)
     logger.info(f"Model loaded from {filepath}")
     return model
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+
