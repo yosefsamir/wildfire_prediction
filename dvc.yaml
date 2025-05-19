@@ -74,16 +74,13 @@ stages:
       - artifacts/figures/confusion_matrix.png:
           cache: false
 
-
-  predict_wildfires:
-    cmd: python pipelines/predict_wildfires.py --config configs/params.yml --model artifacts/models/wildfire_xgboost_model.pkl --data data/processed/merged/merged_fire_weather.csv --output artifacts/predictions/wildfire_predictions.csv
+  predict_and_deploy_model:
+    cmd:  python -m streamlit run pipelines\predict_and_deploy_model.py
     deps:
-      - artifacts/models/wildfire_xgboost_model.pkl
       - data/processed/merged/merged_fire_weather.csv
+      - artifacts/models/wildfire_xgboost_model.pkl
       - configs/params.yml
-      - pipelines/predict_wildfires.py
+      - pipelines/predict_and_deploy_model.py
       - src/wildfire_prediction/models/xgboost_model.py
-    outs:
-      - artifacts/predictions/wildfire_predictions.csv:
-          cache: true
-          persist: true
+
+
