@@ -15,6 +15,74 @@ The Wildfire Prediction System is a comprehensive data science project that pred
 - **Reproducible Workflow**: Utilizes DVC for data versioning and pipeline management
 - **API-Ready**: Includes deployment code for model serving
 
+
+
+## Model Features
+
+The model uses various features including:
+
+- Spatial grid-based features
+- Temporal features (day of year, month, season)
+- Weather data (temperature, precipitation, vapor pressure deficit)
+- Drought indices
+- Fire weather indices
+- Historical fire patterns
+
+## Model Results and Artifacts
+
+The XGBoost model achieves an accuracy of 81% on the test dataset, demonstrating strong predictive capability for wildfire occurrence prediction.
+
+### Performance Metrics
+
+- **Accuracy**: 81%
+- **Precision**: 74.34%
+- **Recall**: 78.09%
+- **F1 Score**: 76.17%
+- **ROC AUC**: 85.45%
+- **Average Precision**: 79.42%
+
+### Confusion Matrix
+
+```
+[185,522   44,656]
+[ 36,314  129,399]
+```
+
+This shows:
+
+- True Negatives: 185,522
+- False Positives: 44,656
+- False Negatives: 36,314
+- True Positives: 129,399
+
+### Validation Results
+
+The model was validated using train-test split and cross-validation. The close alignment between training (79.51%), validation (79.51%), and test (79.55%) accuracies indicates the model generalizes well without overfitting.
+
+### Artifacts
+
+The following artifacts are generated during model training and evaluation:
+
+1. **Model Files**:
+
+   - `artifacts/models/xgboost_model.pkl`: Trained XGBoost model
+
+2. **Visualizations**:
+
+   - `artifacts/figures/xgboost_feature_importance.png`: Feature importance plot
+   - `artifacts/figures/xgboost_confusion_matrix.png`: Confusion matrix visualization
+   - `artifacts/figures/xgboost_roc_curve.png`: ROC curve (AUC = 85.45%)
+   - `artifacts/figures/xgboost_pr_curve.png`: Precision-Recall curve
+
+3. **Metrics**:
+
+   - `artifacts/metrics/metrics.json`: Overall model metrics
+   - `artifacts/metrics/xgboost_detailed_metrics.json`: Detailed performance metrics
+
+4. **Predictions**:
+   - `artifacts/predictions/sample_predictions.csv`: Sample predictions for evaluation
+
+
 ## Project Structure
 
 ```
@@ -162,17 +230,6 @@ This will launch a web interface where you can:
 - Input coordinates directly
 - View wildfire probability predictions
 - Explore feature importance
-
-## Model Features
-
-The model uses various features including:
-
-- Spatial grid-based features
-- Temporal features (day of year, month, season)
-- Weather data (temperature, precipitation, vapor pressure deficit)
-- Drought indices
-- Fire weather indices
-- Historical fire patterns
 
 
 
