@@ -15,8 +15,6 @@ The Wildfire Prediction System is a comprehensive data science project that pred
 - **Reproducible Workflow**: Utilizes DVC for data versioning and pipeline management
 - **API-Ready**: Includes deployment code for model serving
 
-
-
 ## Model Features
 
 The model uses various features including:
@@ -43,10 +41,7 @@ The XGBoost model achieves an accuracy of 81% on the test dataset, demonstrating
 
 ### Confusion Matrix
 
-```
-[185,522   44,656]
-[ 36,314  129,399]
-```
+![XGBoost Confusion Matrix](artifacts/figures/xgboost_confusion_matrix.png)
 
 This shows:
 
@@ -54,6 +49,18 @@ This shows:
 - False Positives: 44,656
 - False Negatives: 36,314
 - True Positives: 129,399
+
+### Feature Importance
+
+![XGBoost Feature Importance](artifacts/figures/xgboost_feature_importance.png)
+
+### ROC Curve
+
+![XGBoost ROC Curve](artifacts/figures/xgboost_roc_curve.png)
+
+### Precision-Recall Curve
+
+![XGBoost Precision-Recall Curve](artifacts/figures/xgboost_pr_curve.png)
 
 ### Validation Results
 
@@ -81,7 +88,6 @@ The following artifacts are generated during model training and evaluation:
 
 4. **Predictions**:
    - `artifacts/predictions/sample_predictions.csv`: Sample predictions for evaluation
-
 
 ## Project Structure
 
@@ -230,8 +236,6 @@ This will launch a web interface where you can:
 - Input coordinates directly
 - View wildfire probability predictions
 - Explore feature importance
-
-
 
 ## License
 
