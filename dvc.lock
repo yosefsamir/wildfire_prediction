@@ -11,8 +11,8 @@ stages:
       size: 490580970
     - path: pipelines/clean_fire_data.py
       hash: md5
-      md5: 2540033982ebf49dd167e05e6802572c
-      size: 5586
+      md5: 92ae172a9b206f33a0ea69cf9c4e3982
+      size: 5452
     outs:
     - path: data/interim/fire_clean.csv
       md5: 9ed4fdad8330e39662396f999ea1a6cd
@@ -25,13 +25,13 @@ stages:
       size: 116624831
     - path: pipelines/preprocess_fire_data.py
       hash: md5
-      md5: d6d97a3c4975d8ceb70695a4b7ed37ee
-      size: 11588
+      md5: cd419e70ac7bbdb4f676040b7f7ea58c
+      size: 11330
     outs:
     - path: data/processed/california_wildfires.csv
       hash: md5
-      md5: 0c064781c75e71ec93b042d02960eca4
-      size: 199230032
+      md5: 89a3656cb2c8382629c505ba3b101ef7
+      size: 199229057
   clean_weather_data:
     cmd: python pipelines/clean_weather_data.py --all-years
     deps:
@@ -47,28 +47,28 @@ stages:
       nfiles: 12
     - path: data/interim/weather_master.parquet
       hash: md5
-      md5: dfe670ac4757e4c310cab6b12c3c4403
-      size: 41277412
+      md5: 31587c160b82d0c97996a2398c4e4d16
+      size: 1078174972
   merge_weather_fire:
     cmd: python pipelines/apply_merge_weather_fire.py
     deps:
     - path: data/interim/weather_features.parquet
       hash: md5
-      md5: c63d479bc0f937f11ec76577c90f0567
-      size: 6653243453
+      md5: 6aaa68f2f1d52caffd953a4fc9ace7cb
+      size: 8602277901
     - path: data/processed/california_wildfires.csv
       hash: md5
-      md5: 7ac12543449763e6b802edd0b8a5d12b
-      size: 199228450
+      md5: 89a3656cb2c8382629c505ba3b101ef7
+      size: 199229057
     - path: pipelines/apply_merge_weather_fire.py
       hash: md5
-      md5: c56586cbf5de73cc6831e5dc6191bc7c
-      size: 4525
+      md5: c66182c9a2113df7c7765ea8eba682c6
+      size: 4508
     outs:
     - path: data/processed/merged/merged_fire_weather.csv
       hash: md5
-      md5: 2902366b09224fdf612dc26afd3bfee1
-      size: 866282110
+      md5: 117c3c3f7ffd20b2ae735416cd82be7b
+      size: 975106381
   feature_engineering_weather:
     cmd: python pipelines/apply_weather_features.py
     deps:
