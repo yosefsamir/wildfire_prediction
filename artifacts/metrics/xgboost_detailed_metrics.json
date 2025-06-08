@@ -1,35 +1,35 @@
 {
-    "accuracy": 0.7954740067341768,
-    "precision": 0.7434374192065726,
-    "recall": 0.7808620928955483,
-    "f1": 0.761690329872148,
-    "roc_auc": 0.8545450002248318,
-    "average_precision": 0.794221519046276,
+    "accuracy": 0.8195060036560483,
+    "precision": 0.7683899506413212,
+    "recall": 0.8146721875490421,
+    "f1": 0.7908545178084359,
+    "roc_auc": 0.8905088972981359,
+    "average_precision": 0.8631875439549901,
     "confusion_matrix": [
         [
-            185522,
-            44656
+            189152,
+            40683
         ],
         [
-            36314,
-            129399
+            30704,
+            134970
         ]
     ],
-    "threshold_used": 0.5006386637687683,
-    "train_accuracy": 0.7950772603883901,
-    "train_precision": 0.7431284252481508,
-    "train_recall": 0.7800816270700951,
-    "train_f1": 0.7611567822932113,
-    "train_roc_auc": 0.8545431560399709,
-    "train_average_precision": 0.7944098541254294,
-    "val_accuracy": 0.7950774329297711,
-    "val_precision": 0.743502642700045,
-    "val_recall": 0.7792750116164694,
-    "val_f1": 0.7609686534138286,
-    "val_roc_auc": 0.854635257101655,
-    "val_average_precision": 0.7947444175586973,
-    "train_test_accuracy_gap": -0.00039674634578668044,
-    "train_test_roc_auc_gap": -1.8441848609329625e-06,
-    "train_val_accuracy_gap": -1.7254138096056693e-07,
-    "val_test_accuracy_gap": -0.0003965738044057199
+    "threshold_used": 0.4989430606365204,
+    "train_accuracy": 0.8195276121447083,
+    "train_precision": 0.7684558153659278,
+    "train_recall": 0.8146182369829967,
+    "train_f1": 0.7908639783260719,
+    "train_roc_auc": 0.8907647330374162,
+    "train_average_precision": 0.8632038733307529,
+    "val_accuracy": 0.8195641565678657,
+    "val_precision": 0.7686772112952116,
+    "val_recall": 0.8143039945917887,
+    "val_f1": 0.7908330451196136,
+    "val_roc_auc": 0.8902373310952904,
+    "val_average_precision": 0.8624421716520874,
+    "train_test_accuracy_gap": 2.160848865995213e-05,
+    "train_test_roc_auc_gap": 0.0002558357392803412,
+    "train_val_accuracy_gap": -3.654442315748074e-05,
+    "val_test_accuracy_gap": 5.815291181743287e-05
 }

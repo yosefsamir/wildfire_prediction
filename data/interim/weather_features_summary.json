@@ -1,39 +1,3 @@
-<<<<<<< HEAD
-{
-<<<<<<< HEAD
-<<<<<<< HEAD
-  "input_file": "D:\\college\\computer science level 3\\second term\\data science\\wildfire\\wildfire_prediction\\data\\interim\\weather_master.parquet",
-  "output_file": "D:\\college\\computer science level 3\\second term\\data science\\wildfire\\wildfire_prediction\\data\\interim\\weather_features.parquet",
-=======
-  "input_file": "D:\\FCAI\\data_science\\project\\wildfire_prediction\\wildfire_prediction\\data\\interim\\weather_master.parquet",
-  "output_file": "D:\\FCAI\\data_science\\project\\wildfire_prediction\\wildfire_prediction\\data\\interim\\weather_features.parquet",
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
-=======
-  "input_file": "D:\\FCAI\\data_science\\project\\wildfire_prediction\\wildfire_prediction\\data\\interim\\weather_master.parquet",
-  "output_file": "D:\\FCAI\\data_science\\project\\wildfire_prediction\\wildfire_prediction\\data\\interim\\weather_features.parquet",
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
-  "total_chunks_processed": 617,
-  "total_rows_processed": 103232421,
-  "chunk_interval_days": 7,
-  "date_range": [
-    "2013-01-01",
-<<<<<<< HEAD
-<<<<<<< HEAD
-    "2013-08-19"
-  ],
-  "total_date_range_days": 230,
-  "processing_time_seconds": 44.16113996505737
-=======
-    "2024-10-31"
-  ],
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
-=======
-    "2024-10-31"
-  ],
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
-  "total_date_range_days": 4321,
-  "processing_time_seconds": 1941.0701348781586
-=======
 {
   "input_file": "D:\\FCAI\\data_science\\project\\wildfire_prediction\\wildfire_prediction\\data\\interim\\weather_master.parquet",
   "output_file": "D:\\FCAI\\data_science\\project\\wildfire_prediction\\wildfire_prediction\\data\\interim\\weather_features.parquet",
@@ -45,6 +9,5 @@
     "2024-10-31"
   ],
   "total_date_range_days": 4321,
-  "processing_time_seconds": 1941.0701348781586
->>>>>>> af8c3836ef7e7f69130d136d5f20ca739104e6af
+  "processing_time_seconds": 1821.3372089862823
 }
