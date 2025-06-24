@@ -1,60 +1,51 @@
 name: wildfire_xgboost
 channels:
   - conda-forge
-  - defaults
+channel_priority: flexible
+
 dependencies:
-  - python=3.9
-  - pip=23.0
-  - pandas=1.5.3
-  - numpy=1.24.3
-  - matplotlib=3.7.1
-  - seaborn=0.12.2
-  - scikit-learn=1.0.2
-  - geopandas=0.12.2
-  - shapely=2.0.1
-  - utm=0.7.0
-  - pyyaml=6.0
-  - dvc=2.58.2
-  - scipy=1.10.1
-  - folium=0.14.0
-  - fiona=1.9.4
-  - pyproj=3.5.0
-  - rasterio=1.3.6
-  - xgboost=1.5.0
-  - lightgbm=3.3.5
-  - plotly=5.14.1
-  - joblib=1.2.0
-  - tqdm=4.65.0
-  - memory_profiler=0.61.0
-  - ipykernel=6.22.0
-  - pip:
-      - dvc-gdrive==2.19.1
-      - pytest==7.3.1
-      - black==23.3.0
-      - flake8==6.0.0
-      - jupyter==1.0.0
-      - notebook==6.5.4
-      - pre-commit==3.3.1
-      - isort==5.12.0
-      - pylint==2.17.4
-      - pyarrow==12.0.0
-      - fastparquet==2023.4.0
-      - pydantic==1.10.7
-      - mlflow==2.3.1
-      - optuna==3.1.1
-      - shap==0.41.0
-# This environment file includes all dependencies needed for the XGBoost model training pipeline
-# with compatible versions to avoid compilation errors. The key packages are:
-# - xgboost=1.7.5: Stable version that works well with scikit-learn 1.2.2
-# - scikit-learn=1.2.2: Compatible with the XGBoost version
-# - shap=0.41.0: For model interpretation
-# - pandas=1.5.3 and numpy=1.24.3: Compatible with the ML libraries
-#
-# To create this environment, run:
-# conda env create -f environment_xgboost.yml
-#
-# To activate this environment, run:
-# conda activate wildfire_xgboost
-#
-# To run the XGBoost training pipeline:
-# python pipelines/train_xgboost_model.py --config configs/params.yml
+  - python=3.10
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - geopandas
+  - shapely
+  - utm
+  - pyyaml
+  - dvc
+  - scipy
+  - folium
+  - gdal
+  - fiona
+  - pyproj
+  - rasterio
+  - xgboost
+  - lightgbm
+  - plotly
+  - joblib
+  - tqdm
+  - memory_profiler
+  - ipykernel
+  - streamlit
+  - pytest
+  - black
+  - flake8
+  - jupyter
+  - notebook
+  - pre-commit
+  - isort
+  - pylint
+  - pyarrow
+  - fastparquet
+  - pydantic
+  - mlflow
+  - optuna
+  - shap
+  - streamlit-folium
+  - dvc-gdrive
+
+pip:
+  - dvc-gdrive==2.19.1
+  - streamlit-folium==0.11.1
