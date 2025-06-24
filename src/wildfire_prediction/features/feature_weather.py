@@ -60,7 +60,7 @@ def calculate_hot_dry_index(df, tmax_col='tmax', ppt_col='ppt',
     return result_df
 
 
-def calculate_spi_ca_daily(df, ppt_col='ppt', lookback_days=7, min_periods=3,
+def calculate_spi_ca_daily(df, ppt_col='ppt', lookback_days=7, min_periods=1,
                            lat_col='latitude', lon_col='longitude'):
     """
     Calculate Standardized Precipitation Index (SPI) for California weather data 
@@ -261,7 +261,7 @@ def calculate_compound_indices(df, lat_col='latitude', lon_col='longitude'):
 
 def calculate_rolling_means(df, tmax_col='tmax', ppt_col='ppt', vpd_col='vbdmax',
                             lat_col='latitude', lon_col='longitude', 
-                            window=7, min_periods=3):
+                            window=7, min_periods=1):
     """
     Calculate rolling means for key weather variables to capture short-term trends,
     grouped by (longitude, latitude).

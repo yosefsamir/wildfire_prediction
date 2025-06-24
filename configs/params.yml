@@ -79,6 +79,9 @@ feature_engineering:
     - fire_weather_index
     - drought_weather_index
     - fire_risk_index
+    - normalized_tmax
+    - normalized_ppt
+    - normalized_vbdmax
 
 monitoring:
   save_model_path: ./models/xgb_wildfire.pkl

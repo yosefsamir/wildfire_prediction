@@ -54,8 +54,8 @@ stages:
     deps:
     - path: data/interim/weather_features.parquet
       hash: md5
-      md5: 6aaa68f2f1d52caffd953a4fc9ace7cb
-      size: 8602277901
+      md5: 32bdd89e20ef15ad6419923adfce52e2
+      size: 8994410286
     - path: data/processed/california_wildfires.csv
       hash: md5
       md5: 89a3656cb2c8382629c505ba3b101ef7
@@ -67,8 +67,8 @@ stages:
     outs:
     - path: data/processed/merged/merged_fire_weather.csv
       hash: md5
-      md5: 117c3c3f7ffd20b2ae735416cd82be7b
-      size: 975106381
+      md5: 51300b35f09681c051362c3e1b1e2f06
+      size: 981123511
   feature_engineering_weather:
     cmd: python pipelines/apply_weather_features.py
     deps:
@@ -83,5 +83,5 @@ stages:
     outs:
     - path: data/interim/weather_features.parquet
       hash: md5
-      md5: 6aaa68f2f1d52caffd953a4fc9ace7cb
-      size: 8602277901
+      md5: 32bdd89e20ef15ad6419923adfce52e2
+      size: 8994410286
